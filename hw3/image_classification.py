@@ -137,3 +137,44 @@ class GYHF_VGG(nn.Module):#继承父类
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x  
+    
+#经典模型四
+class GYHF_TestNet(nn.Module):#继承父类
+    # 典型的LetNet5实现
+    #注意，原本的LetNet5是用来处理手写字母数字识别的，输入灰度图像即1个通道的，而且第二个卷积层较为复杂，
+    #此处实现，是对彩色3通道数据进行处理，第二个卷积层设置也很简单，还加入了relu激活函数
+    #因此，对于此题的分类效果很不理想
+    # 现在假设输入的图像均为(32,32)大小的，以下数字根据size和stride等计算得出
+    input_size = (32, 32)#输入图像均为（32,32)的矩阵
+
+    def __init__(self, class_count):
+        super(GYHF_TestNet, self).__init__()#调用父类的初始化方法
+        self.features = nn.Sequential( #使用nn.Sequential去定义特征
+            nn.Conv2d(in_channels=3, out_channels=64,#64个5*5*3的filter
+                      kernel_size=3),  # (64,30,30)
+            nn.BatchNorm2d(64),
+            nn.ReLU(), #Rectified Linear Unit
+            nn.MaxPool2d(2, 2),  # (64,15,15)   2*2的pooling ,步长为2
+            nn.Conv2d(64, 128, 3),  # (128,13,13)   16个5*5*6的filter
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),  # (128,6,6)
+            nn.Conv2d(128, 256, 3),  # (256,4,4)
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),  # (256,2,2)
+            nn.Flatten()  # (1024,)
+        )
+        #从15行到26行表示特征提取
+         #28行——33行表示对特征进行线性分类
+        self.classifer = nn.Sequential(#定义分类器
+            nn.Linear(in_features=1024, out_features=512),#通过flatten中的120个特征，自定义选出84个
+            nn.ReLU(),
+            nn.Linear(512, class_count),
+            # nn.Softmax()#不需要进行softmax，因为是递增函数，和求前一步的最大值一样
+        )
+
+    def forward(self, x):  #正向传播
+        x = self.features(x)        
+        x = self.classifer(x)
+        return x

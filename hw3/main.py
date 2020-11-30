@@ -22,7 +22,6 @@ current_dir = os.path.dirname(__file__)
 TRAIN_DIR = os.path.join(current_dir, "data/training")
 VALIDATION_DIR = os.path.join(current_dir, "data/validation")
 TEST_DIR = os.path.join(current_dir, "data/testing")
-SAVE_PATH = os.path.join(current_dir, "model.pkl")
 TEST_REULST_PATH = os.path.join(current_dir, "./data/result.csv")
 
 # 用以对cpu和GPU进行兼容
@@ -54,19 +53,21 @@ def validate(data_loader, m):
             torch.cuda.empty_cache()
     return right_count
 
+model_class = image_classification.GYHF_AlexNet
 
 # 训练数据集
 data_train = image_set.LearningSet(
-    TRAIN_DIR, image_classification.GYHF_AlexNet.input_size)
+    TRAIN_DIR, model_class.input_size)
 class_count = data_train.GetClassNum()  # 获取类别数量
 
 # 模型实例化
+SAVE_PATH = os.path.join(current_dir, str(model_class)+".pkl")
 if os.path.exists(SAVE_PATH):
     print("model has been loaded from file.")
     model = torch.load(SAVE_PATH)
 else:
     print("create a new model.")
-    model = image_classification.GYHF_AlexNet(class_count)
+    model = model_class(class_count)
 
 if cuda_ok:
     try:  # 如果显存不够，可能无法用GPU进行计算
@@ -96,7 +97,7 @@ print("waiting for training...")
 for i in range(20):
     print("iters ", i, " ...")
     model = model_manager.train_model(
-        model, data_train, cuda_ok=cuda_ok, epochs=10)
+        model, data_train, cuda_ok=cuda_ok, epochs=10, lr = 0.001)
     with torch.no_grad():
         # 每10轮保存一次模型，同时验证一下正确率
         # 模型保存

@@ -26,9 +26,10 @@ class LearningSet(torch.utils.data.Dataset):#继承父类，命名为LearingsSet
         #相当于int[]定义了一个函数，表示映射：names->int[]
         # 设置训练时图片转换器，转换成tensor,增加一些变换操作以增加学习集
         transformer_train = transforms.Compose([#使用transforms包中的方法（Compose）生成转换器            
+            #transforms.RandomCrop(ouput_size),  # 随机水平翻转图片
             transforms.Resize(ouput_size),    #重设大小        
             transforms.RandomHorizontalFlip(),  # 随机水平翻转图片
-            transforms.RandomRotation(15),  # 随机旋转图片
+            #transforms.RandomRotation(15),  # 随机旋转图片
             transforms.ToTensor(),   #转换成tensor(其中前面加To,只是固定表达方式）
             transforms.Normalize(mean=IMAGE_MEAN, std=IMAGE_STD),
         ])

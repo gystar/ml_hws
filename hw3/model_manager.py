@@ -14,7 +14,7 @@ importlib.reload(image_set)
 importlib.reload(image_classification)
 
 
-def train_model(model, data, nbatch=128, epochs=10, cuda_ok=True):
+def train_model(model, data, epochs=10, nbatch=128,  cuda_ok=True, lr = 0.001, weight_decay = 0.01):
     # dataloader
     data_loader_train = torch.utils.data.DataLoader(
         data,
@@ -27,7 +27,7 @@ def train_model(model, data, nbatch=128, epochs=10, cuda_ok=True):
     # LogSoftmax=log+softmax
     # NLLLoss:negative log likelihood loss
     loss_func = torch.nn.CrossEntropyLoss()  # 损失函数
-    opt = torch.optim.Adam(model.parameters(), lr=1e-3)  # 优化器（梯度下降的具体算法Adam）
+    opt = torch.optim.Adam(model.parameters(), lr=lr,weight_decay=weight_decay)  # 优化器（梯度下降的具体算法Adam）
 
     loss = np.zeros(epochs)
     model.train()  # 会打开dropout、batchnorm等
