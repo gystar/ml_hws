@@ -28,15 +28,31 @@ model_class = image_classification.GYHF_LetNet5
 data = image_set.LearningSet( TRAIN_DIR, model_class.input_size, False)
 #使用已经训练好的model
 model = torch.load(MODEL_PATH)
+
 #对于输入的image求导,saliencymap中的像素值取3通道偏导中最大值的绝对值
 #这个偏导的数值代表了显著程度
-#随机取k 张图
+#取每个类别得分最高的10张图求平均
 #得分函数即对应的概率大小，不加softmax则为最后一层的输出的大小
-class_num = data.GetClassNum()
 
-k = 10
-idx = torch.randint( data.__len__(), (k,))#随机取10张图片进行可视化
-   
+data_loader = torch.utils.data.DataLoader(
+    data, 1024, shuffle=False,
+    num_workers=2)
+class_num = data.GetClassNum()
+#先计算出所有图片的输出
+output = np.zeros((1, class_num)) #空矩阵，便于使用concatenate
+model.eval()  # 会关闭dropout、batchnorm等
+with torch.no_grad():  # 不构建计算图
+    for _, info in enumerate(data_loader):
+        images, labels = info             
+        y_pred = model(images).numpy()                
+        output = np.concatenate((output, y_pred), axis=0)            
+output = torch.tensor(output[1:]).float() #去掉第一行的空行
+
+#每个列别取出一张概率最大的图片进行可视化
+idx = []
+for i in range(class_num):
+    idx.append(output[:,i].topk(1)[1].item()) #得到所需图片的索引
+
 #取出这些图片，并且重新预测一次，并且计算输入的偏导
 images = np.zeros((1, 3,model_class.input_size[0], model_class.input_size[1])) #空矩阵，便于使用concatenate
 labels = np.zeros((1,)) #空矩阵，便于使用concatenate  
@@ -54,8 +70,13 @@ loss = loss_func(y_pred, labels)
 loss.backward()
 
 def tensor2numpy(t):
-    tansformer = transforms.ToPILImage() #将tensor反解析为图像
+    #将tensor反解析为图像
+    tansformer = transforms.ToPILImage() 
     return np.array(tansformer(t))
+def grad2numpy(grad):
+    #将图片的梯度转换为图像矩阵
+    img = grad.detach().abs().numpy()
+    return ((img - img.min()) / (img.max() - img.min())).transpose(1,2,0)
 #所有图像的梯度
 images_grad = images.grad.detach().cpu()
 #绘制图片
@@ -72,7 +93,7 @@ for i in range(k):
     ax.set_title('Image %s' % str(i), fontsize=30,color='r')
     #再画出显著图
     ax = fig.add_subplot(3*2, 4, pos2, xticks=[], yticks=[]) 
-    ax.imshow(tensor2numpy(images_grad[i]))
+    ax.imshow(grad2numpy(images_grad[i]))
     ax.set_title('saliency %s' % str(i), fontsize=30,color='r')    
 
 
