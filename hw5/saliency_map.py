@@ -1,17 +1,19 @@
 #saliency map的实现
 #基于hw3中的letnet5训练好的model来实现
-import os,sys
+import os,sys,math
 import torch
 import numpy as np
 from PIL import Image
 from torchvision import transforms
 import importlib
 import matplotlib.pyplot as plt
+import random
 sys.path.append('../hw3') ##直接使用hw3中的model
 import image_classification
 import image_set
 importlib.reload(image_set)
 importlib.reload(image_classification)
+random.seed(10)
 
 
 current_dir = os.path.dirname(__file__)
@@ -28,50 +30,51 @@ data = image_set.LearningSet( TRAIN_DIR, model_class.input_size, False)
 model = torch.load(MODEL_PATH)
 #对于输入的image求导,saliencymap中的像素值取3通道偏导中最大值的绝对值
 #这个偏导的数值代表了显著程度
-#取每个类别得分最高的10张图求平均
+#随机取k 张图
 #得分函数即对应的概率大小，不加softmax则为最后一层的输出的大小
-
-data_loader = torch.utils.data.DataLoader(
-    data, 1024, shuffle=False,
-    num_workers=2)
 class_num = data.GetClassNum()
-#先计算出所有图片的输出
-output = np.zeros((1, class_num)) #空矩阵，便于使用concatenate
-model.eval()  # 会关闭dropout、batchnorm等
-with torch.no_grad():  # 不构建计算图
-    for _, info in enumerate(data_loader):
-        images, labels = info             
-        y_pred = model(images).numpy()                
-        output = np.concatenate((output, y_pred), axis=0)            
-output = torch.tensor(output[1:]).float() #去掉第一行的空行
 
+k = 10
+idx = torch.randint( data.__len__(), (k,))#随机取10张图片进行可视化
+   
+#取出这些图片，并且重新预测一次，并且计算输入的偏导
+images = np.zeros((1, 3,model_class.input_size[0], model_class.input_size[1])) #空矩阵，便于使用concatenate
+labels = np.zeros((1,)) #空矩阵，便于使用concatenate  
+for j in idx:
+    image, label = data.__getitem__(j)
+    images = np.concatenate((images, image.unsqueeze(0)), axis = 0)
+    labels = np.concatenate((labels, np.array([label])), axis = 0)
+images = torch.from_numpy(images[1:]).float()
+labels = torch.from_numpy(labels[1:]).long()
+images.requires_grad = True
+model.eval()
+y_pred = model(images)
+loss_func = torch.nn.CrossEntropyLoss()
+loss = loss_func(y_pred, labels)    
+loss.backward()
 
-fig = plt.figure(figsize=(40, 40))
-k = 10   #每一个类别中选出得分(概率)最高的k张图
-for i in range(class_num):
-    topk_idx = output[:,i].topk(k)[1] #得到所需图片的索引
-    #取出这些图片，并且重新预测一次，并且计算输入的偏导
-    images = np.zeros((1, 3,model_class.input_size[0], model_class.input_size[1])) #空矩阵，便于使用concatenate 
-    for j in topk_idx:
-        image, _ = data.__getitem__(j)
-        images = np.concatenate((images, image.unsqueeze(0)), axis = 0)
-    images = torch.from_numpy(images[1:]).float()
-    images.requires_grad = True
-    y_pred = model(images)    
-    for j in range(k):#计算每一张图片的梯度        
-        loss = y_pred[j,i]
-        loss.backward(retain_graph=True) 
-    #取图像每个像素的每个通道的梯度绝对值最大的作为代表
-    #k幅图再求平均
-    mean_map = images.grad.abs().max(axis = 1)[0].mean(axis = 0)
-    #转为PIL图像
-    saliency_map = transforms.ToPILImage()(mean_map)
-    #绘制图片
-    ax = fig.add_subplot(4, 3, i+1, xticks=[], yticks=[]) 
-    ax.imshow(saliency_map.convert("L"),cmap='gray')
-    ax.set_title('Class %s' % str(i), fontsize=50,color='r')   
-    #保存图片
-    saliency_map.save(OUTPUT_DIR+"/saliencymap_"+str(i)+".png")   
+def tensor2numpy(t):
+    tansformer = transforms.ToPILImage() #将tensor反解析为图像
+    return np.array(tansformer(t))
+#所有图像的梯度
+images_grad = images.grad.detach().cpu()
+#绘制图片
+fig = plt.figure(figsize=model_class.input_size)
+cols = 4
+rows = 3*2
+for i in range(k):  
+    row ,col = math.floor(i/cols), i%cols
+    pos1 = row*cols*2+col+1
+    pos2 = pos1 + cols
+    #先画原图  
+    ax = fig.add_subplot(3*2, 4, pos1, xticks=[], yticks=[]) 
+    ax.imshow(tensor2numpy(images[i]))
+    ax.set_title('Image %s' % str(i), fontsize=30,color='r')
+    #再画出显著图
+    ax = fig.add_subplot(3*2, 4, pos2, xticks=[], yticks=[]) 
+    ax.imshow(tensor2numpy(images_grad[i]))
+    ax.set_title('saliency %s' % str(i), fontsize=30,color='r')    
+
 
 
 

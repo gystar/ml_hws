@@ -21,15 +21,9 @@ OUTPUT_DIR = os.path.join(current_dir, "output")
 if not os.path.exists(OUTPUT_DIR):
     os.mkdir(OUTPUT_DIR)
     
-#指定模型类别
-model_class = image_classification.GYHF_LetNet5
-data = image_set.LearningSet( TRAIN_DIR, model_class.input_size, False)
-#使用已经训练好的model
-model = torch.load(MODEL_PATH)
-
-def plot_layer(filters ):
-    #输入的layers为[layer_count, w, h]
-    fig = plt.figure(figsize=(20, 20))
+def plot_filters(filters):
+    #输入的layers为[layer_count, channels,w, h]
+    fig = plt.figure(figsize=(filters.shape[2], filters.shape[3]))
     cols = 3
     rows = math.ceil(filters.shape[0]/cols)
     
@@ -38,6 +32,12 @@ def plot_layer(filters ):
         ax = fig.add_subplot(rows, cols, i+1, xticks=[], yticks=[])
         # grab layer outputs
         ax.imshow(rgb_matrix)
-        ax.set_title('Filter %s' % str(i+1), fontsize=50,color='g')  
+        ax.set_title('Filter %s' % str(i+1), fontsize=15,color='g')  
+    
+#指定模型类别
+model_class = image_classification.GYHF_LetNet5
+data = image_set.LearningSet( TRAIN_DIR, model_class.input_size, False)
+#使用已经训练好的model
+model = torch.load(MODEL_PATH)
 
-plot_layer(model.features[0].weight)
+plot_filters(model.features[0].weight)
