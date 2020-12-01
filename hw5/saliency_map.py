@@ -1,4 +1,4 @@
-#aliency map的实现
+#saliency map的实现
 #基于hw3中的letnet5训练好的model来实现
 import os,sys
 import torch
@@ -6,6 +6,7 @@ import numpy as np
 from PIL import Image
 from torchvision import transforms
 import importlib
+import matplotlib.pyplot as plt
 sys.path.append('../hw3') ##直接使用hw3中的model
 import image_classification
 import image_set
@@ -44,7 +45,9 @@ with torch.no_grad():  # 不构建计算图
         output = np.concatenate((output, y_pred), axis=0)            
 output = torch.tensor(output[1:]).float() #去掉第一行的空行
 
-k = 10   #每一个类别中选出得分最高的k张图
+
+fig = plt.figure(figsize=(40, 40))
+k = 10   #每一个类别中选出得分(概率)最高的k张图
 for i in range(class_num):
     topk_idx = output[:,i].topk(k)[1] #得到所需图片的索引
     #取出这些图片，并且重新预测一次，并且计算输入的偏导
@@ -63,8 +66,12 @@ for i in range(class_num):
     mean_map = images.grad.abs().max(axis = 1)[0].mean(axis = 0)
     #转为PIL图像
     saliency_map = transforms.ToPILImage()(mean_map)
-    #保存图片   
-    saliency_map.save(OUTPUT_DIR+"/"+str(i)+".png")   
+    #绘制图片
+    ax = fig.add_subplot(4, 3, i+1, xticks=[], yticks=[]) 
+    ax.imshow(saliency_map.convert("L"),cmap='gray')
+    ax.set_title('Class %s' % str(i), fontsize=50,color='r')   
+    #保存图片
+    saliency_map.save(OUTPUT_DIR+"/saliencymap_"+str(i)+".png")   
 
 
 
