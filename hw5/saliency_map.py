@@ -48,7 +48,7 @@ with torch.no_grad():  # 不构建计算图
         output = np.concatenate((output, y_pred), axis=0)            
 output = torch.tensor(output[1:]).float() #去掉第一行的空行
 
-#每个列别取出一张概率最大的图片进行可视化
+#每个类别取出一张概率最大的图片进行可视化
 idx = []
 for i in range(class_num):
     idx.append(output[:,i].topk(1)[1].item()) #得到所需图片的索引
