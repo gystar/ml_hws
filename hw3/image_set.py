@@ -2,11 +2,10 @@
 # 一个set加载一个文件夹中的所有图片
 import torch
 import os
+from torch import random
 from torchvision import transforms
 from PIL import Image
-
-IMAGE_MEAN=[0.485, 0.456, 0.406] 
-IMAGE_STD=[0.229, 0.224, 0.225]
+from torchvision.transforms.transforms import CenterCrop
 
 # 用来进行训练的train、validation图片集加载类
 # 图片的命名为"类别_名称.jpg"
@@ -25,20 +24,17 @@ class LearningSet(torch.utils.data.Dataset):#继承父类，命名为LearingsSet
         self.images = [names, labels]
         #相当于int[]定义了一个函数，表示映射：names->int[]
         # 设置训练时图片转换器，转换成tensor,增加一些变换操作以增加学习集
-        transformer_train = transforms.Compose([#使用transforms包中的方法（Compose）生成转换器            
-            #transforms.RandomCrop(ouput_size),  # 随机水平翻转图片
+        transformer_train = transforms.Compose([#使用transforms包中的方法（Compose）生成转换器    
             transforms.Resize(ouput_size),    #重设大小        
             transforms.RandomHorizontalFlip(),  # 随机水平翻转图片
-            #transforms.RandomRotation(15),  # 随机旋转图片
-            transforms.ToTensor(),   #转换成tensor(其中前面加To,只是固定表达方式）
-            transforms.Normalize(mean=IMAGE_MEAN, std=IMAGE_STD),
+            transforms.RandomRotation(15),  # 随机旋转图片
+            transforms.ToTensor(),   #转换成tensor(其中前面加To,只是固定表达方式）            
         ])
 
         # 进行验证时，使用图片转换器，转换成tensor，不需要对validation做翻转等操作
         transformer_validation = transforms.Compose([
             transforms.Resize(ouput_size),  #重设大小
-            transforms.ToTensor(),#转换成Tensor
-            transforms.Normalize(mean=IMAGE_MEAN, std=IMAGE_STD),
+            transforms.ToTensor(),#转换成Tensor            
         ])
 
         # 根据is_train选择转换器
@@ -57,7 +53,7 @@ class LearningSet(torch.utils.data.Dataset):#继承父类，命名为LearingsSet
         path = os.path.join(self.dir, path)  #os.path.join表示连接文件夹self.dir和文件名path两个路径    
         image = self.transformer(Image.open(path).convert('RGB'))
         #打开path中的jpg文件并使用转换器将其变为Tensor
-        return image, label
+        return image, label    
 
     # 获取类别的数量
     def GetClassNum(self):
@@ -77,7 +73,6 @@ class TestingSet(torch.utils.data.Dataset):#继承
         transformer = transforms.Compose([
             transforms.Resize(ouput_size),
             transforms.ToTensor(),
-            transforms.Normalize(mean=IMAGE_MEAN, std=IMAGE_STD),
         ])
 
         self.transformer = transformer

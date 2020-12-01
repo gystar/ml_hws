@@ -53,7 +53,8 @@ def validate(data_loader, m):
             torch.cuda.empty_cache()
     return right_count
 
-model_class = image_classification.GYHF_AlexNet
+#指定模型类别
+model_class = image_classification.GYHF_LetNet5
 
 # 训练数据集
 data_train = image_set.LearningSet(
@@ -97,7 +98,7 @@ print("waiting for training...")
 for i in range(20):
     print("iters ", i, " ...")
     model = model_manager.train_model(
-        model, data_train, cuda_ok=cuda_ok, epochs=10, lr = 0.001)
+        model, data_train, cuda_ok=cuda_ok, epochs=10, lr = 0.001, weight_decay = 0)
     with torch.no_grad():
         # 每10轮保存一次模型，同时验证一下正确率
         # 模型保存
