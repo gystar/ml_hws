@@ -14,19 +14,22 @@ def tensor2numpy(image:torch.tensor):
     tansformer = transforms.ToPILImage() 
     return np.array(tansformer(image))
 
-def filter_versualization(model, input_size, cnn_id, filter_id, iters = 10, lr = 0.001):
+def generate_image(model:torch.nn.Module, model_layer,filter_id, input_size, iters = 10, lr = 0.1):
     #参数：模型，cnn的id号，filter在当前cnn的id，梯度上升得到图片的训练轮次，学习率
+    #model_layer：需要hook的层所在，由于不同的构造方法不同，索引各层的方式也不同，因此需要传入此参数
+    #例如image_classification.py中的GYHF_LetNet5，要hook第一个卷积层，则传入model.features[0]
     #返回生成的一张图片的tensor
     def hook(model, input, output):
         global g_activation_output
         g_activation_output = output #将激活后的结果通过全局变量传递出去
         
-    hook_handle = model.cnn[cnn_id].register_forward_hook(hook) #hook到目标层
-    input = torch.randn(input_size).unsqueeze(0)
+    hook_handle = model_layer.register_forward_hook(hook) #hook到目标层
+    input = torch.zeros(input_size).unsqueeze(0)
     input.requires_grad = True    
     
-    #通过多次梯度上升逐步修改输入的图片来得到能最大激活该层的图片    
-    opt = torch.optim.Adam(model.parameters(), lr=lr)  # 优化器（梯度下降的具体算法Adam）
+    #通过多次梯度上升逐步修改输入的图片来得到能最大激活该层的图片
+    #注意，此处要 梯度下降的是input    
+    opt = torch.optim.Adam([input], lr=lr)  # 优化器（梯度下降的具体算法Adam）
     model.train()  # 会打开dropout、batchnorm等
     for _ in range(iters):
         model(input)
@@ -38,10 +41,10 @@ def filter_versualization(model, input_size, cnn_id, filter_id, iters = 10, lr =
     
     hook_handle.remove() #移除hook        
     image = input.detach().cpu().squeeze(0)
-    return image
+    return tensor2numpy(image)
 
 ##test
-if __name__ == "__main_":
+if __name__ == "__main__":
     import sys
     import importlib
     sys.path.append('../hw3') ##直接使用hw3中的model
@@ -54,9 +57,9 @@ if __name__ == "__main_":
     data = image_set.LearningSet( "../hw3/data/training", model_class.input_size, False)
     #使用已经训练好的hw3中的model
     model = torch.load("../hw3/<class 'image_classification.GYHF_LetNet5'>.pkl")
-    image = filter_versualization(model, model.input_size, 0, 0)
-    plt.figure()
-    plt.imshow(tensor2numpy(image))
+    image = generate_image(model, model.features[6], 1, (3,model.input_size[0], model.input_size[1]), iters=1000, lr=0.01)
+    plt.figure( figsize=(1,1))
+    plt.imshow(image)
 
         
     

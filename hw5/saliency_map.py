@@ -17,7 +17,7 @@ def grad2numpy(grad):
     #将每个梯度值做这种比较简单的标准化，以免不同的图色差太大。
     return ((img - img.min()) / (img.max() - img.min())).transpose(1,2,0)#注意这里需要转置，因为plt画图通道维度默认在最后
 
-def draw(model, images, labels):
+def draw(model, images, labels, fontsize = 15):
     images.requires_grad = True #指定需要求导，使输入的图片矩阵在反向传播的时候也会被求导
     model.eval()
     y_pred = model(images)
@@ -30,7 +30,7 @@ def draw(model, images, labels):
     #所有图像的梯度
     images_grad = images.grad.detach().cpu()
     #绘制图片
-    fig = plt.figure(figsize=(images[0,0].shape))
+    fig = plt.figure(figsize=(8,8))
     cols = 4  #绘制的列数
     for i in range(num):  
         #原图像和显著图呈上下位置分布，计算出他们在图像中的位置
@@ -40,11 +40,11 @@ def draw(model, images, labels):
         #先画原图  
         ax = fig.add_subplot(3*2, 4, pos1, xticks=[], yticks=[]) #添加原图像的子图
         ax.imshow(tensor2numpy(images[i]))
-        ax.set_title('Image %s' % str(i), fontsize=30,color='r') #设置标题
+        ax.set_title('Image %s' % str(i), fontsize=fontsize,color='r') #设置标题
         #再画出显著图
         ax = fig.add_subplot(3*2, 4, pos2, xticks=[], yticks=[]) #添加显著图的子图
         ax.imshow(grad2numpy(images_grad[i]))
-        ax.set_title('saliency %s' % str(i), fontsize=30,color='r')    
+        ax.set_title('saliency %s' % str(i), fontsize=fontsize,color='r')    
 
 
 ##test
@@ -62,4 +62,4 @@ if __name__ == "__main__" :
     #使用已经训练好的hw3中的model
     model = torch.load("../hw3/<class 'image_classification.GYHF_LetNet5'>.pkl")
     images,lables = data.GetBatch([0,1,2])
-    draw(model, images, lables)
+    draw(model, images, lables, 7)
