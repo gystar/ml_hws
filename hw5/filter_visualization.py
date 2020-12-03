@@ -1,7 +1,7 @@
 '''
 Author: gystar
 Date: 2020-12-03 14:52:09
-LastEditTime: 2020-12-03 17:27:20
+LastEditTime: 2020-12-03 19:21:49
 LastEditors: Please set LastEditors
 Description: 通过hook和gradient ascend方式，生成并显示pytorh的某一层cnn的filter能最大激活的图像
              最大激活：即被filter过滤后，得到的矩阵的各元素之和最大
@@ -37,7 +37,7 @@ param {*} lr:学习率
 return {*} 生成的该层能最大激活的图片，每张图片对应激活结果（均已经转换为[w,h,c]形式的图像矩阵）
 '''
 
-def generate_image(images, model:torch.nn.Module, model_layer,filter_id, input_size, iters = 10, lr = 0.1):
+def visualization(images, model:torch.nn.Module, model_layer,filter_id, input_size, iters = 10, lr = 0.1):
     def hook(model, input, output):
         global g_output
         g_output = output #将激活后的结果通过全局变量传递出去
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     #使用已经训练好的hw3中的model
     model = torch.load("../hw3/<class 'image_classification.GYHF_LetNet5'>.pkl")
     images,lables = data.GetBatch([1,3,5])
-    image,activations  = generate_image(images,model, model.features[0], 0, (3,model.input_size[0], model.input_size[1]),iters=1000, lr=0.01)
+    image,activations  = visualization(images,model, model.features[0], 0, (3,model.input_size[0], model.input_size[1]),iters=1000, lr=0.01)
     fig, axs = plt.subplots(2, len(images), figsize=(10, 10))
     for i, img in enumerate(images):
         axs[0][i].imshow(img.permute(1, 2, 0))
