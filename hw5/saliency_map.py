@@ -24,14 +24,15 @@ def draw(model, images, labels):
     loss_func = torch.nn.CrossEntropyLoss()
     loss = loss_func(y_pred, labels)    
     loss.backward() #一次反向传播，进行求导
+    
+    num = images.shape[0] #图片数量
 
     #所有图像的梯度
     images_grad = images.grad.detach().cpu()
     #绘制图片
     fig = plt.figure(figsize=(images[0,0].shape))
-    cols = 4
-    rows = 3*2
-    for i in range(images.shape[0]):  
+    cols = 4  #绘制的列数
+    for i in range(num):  
         #原图像和显著图呈上下位置分布，计算出他们在图像中的位置
         row ,col = math.floor(i/cols), i%cols
         pos1 = row*cols*2+col+1 #原图像在大图中的位置，即第几个子图
@@ -46,7 +47,19 @@ def draw(model, images, labels):
         ax.set_title('saliency %s' % str(i), fontsize=30,color='r')    
 
 
-
-
-
-
+##test
+if __name__ == "__main__" :
+    import sys
+    import importlib
+    sys.path.append('../hw3') ##直接使用hw3中的model
+    import image_classification
+    import image_set
+    importlib.reload(image_set)
+    importlib.reload(image_classification)
+    #指定模型类别
+    model_class = image_classification.GYHF_LetNet5
+    data = image_set.LearningSet( "../hw3/data/training", model_class.input_size, False)
+    #使用已经训练好的hw3中的model
+    model = torch.load("../hw3/<class 'image_classification.GYHF_LetNet5'>.pkl")
+    images,lables = data.GetBatch([0,1,2])
+    draw(model, images, lables)
