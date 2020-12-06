@@ -1,6 +1,6 @@
 李宏毅机器学习2020，15到作业题目的实现代码，具体的题目可以参考每个hw文件夹中的slide，
 相关数据有的比较大就不放在代码库了，在下面的地址下载：
-https://www.kaggle.com/c/ml2020spring-hw1
+https://www.kaggle.com/c/ml2020spring-hw1 (有些题目没有，完整的我备份在teambition中)
 例如，下载hw3的数据，将上面的链接hw1改为hw3即可，网站上有详细的要求，还可以提交结果进行评分。
 数据备份地址：https://www.teambition.com/pan/org/5fc09e65513ca89b845dd081/space/f0b5251cb8c09706/folder/8a4524276a892572e6fd2eda23b75a74
 所有的数据都放在作业目录的data下面
