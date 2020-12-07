@@ -54,7 +54,7 @@ def validate(data_loader, m):
     return right_count
 
 #指定模型类别
-model_class = image_classification.GYHF_LetNet5
+model_class = image_classification.GYHF_VGG
 
 # 训练数据集
 data_train = image_set.LearningSet(
@@ -66,19 +66,14 @@ SAVE_PATH = os.path.join(current_dir, str(model_class)+".pkl")
 if os.path.exists(SAVE_PATH):
     print("model has been loaded from file.")
     model = torch.load(SAVE_PATH)
-else:
-    print("create a new model.")
-    model = model_class(class_count)
-
-if cuda_ok:
-    try:  # 如果显存不够，可能无法用GPU进行计算
+else:None
         model = model.cuda()
     except:
         print("There is no enough GPU memory for model,use cpu instead.")
         model = model.cpu()
         cuda_ok = False
 
-nbatch_predict = 1024
+nbatch_predict = 32
 # 验证集数据加载器
 # 训练数据验证
 data_validation1 = image_set.LearningSet(
@@ -98,7 +93,7 @@ print("waiting for training...")
 for i in range(20):
     print("iters ", i, " ...")
     model = model_manager.train_model(
-        model, data_train, cuda_ok=cuda_ok, epochs=10, lr = 0.001, weight_decay = 0)
+        model, data_train, cuda_ok=cuda_ok, epochs=10, nbatch = 32,lr = 0.001, weight_decay = 0)
     with torch.no_grad():
         # 每10轮保存一次模型，同时验证一下正确率
         # 模型保存
