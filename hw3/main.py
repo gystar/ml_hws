@@ -66,7 +66,13 @@ SAVE_PATH = os.path.join(current_dir, str(model_class)+".pkl")
 if os.path.exists(SAVE_PATH):
     print("model has been loaded from file.")
     model = torch.load(SAVE_PATH)
-else:None
+    model = model.cuda() if cuda_ok else model.cpu()
+else:
+    print("create a new model.")
+    model = model_class(class_count)
+
+if cuda_ok:
+    try:  # 如果显存不够，可能无法用GPU进行计算
         model = model.cuda()
     except:
         print("There is no enough GPU memory for model,use cpu instead.")
