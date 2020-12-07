@@ -14,9 +14,7 @@ FilePath: /ml_hws/hw6/fgsm.py
 import torch
 from torchvision import transforms
 import random
-
-
-cuda_ok = torch.cuda.is_available()
+import numpy as np
 
 
 def tensor2numpy(t):
@@ -29,9 +27,6 @@ def attack(model, image, label, tolerance):
     random.seed(10)
     image = image.unsqueeze(0)
 
-    if cuda_ok:
-        image, model = image.cuda(), model.cuda()
-
     softmax = torch.nn.functional.softmax
     # 会计算输入图片矩阵的导数
     image.requires_grad = True
@@ -42,11 +37,10 @@ def attack(model, image, label, tolerance):
     loss = -1 * y[label].squeeze(0)
     loss.backward()
     # 更新输入的图片
-    update = torch.zeros(image.grad.shape)
+    update = torch.zeros(image.grad.shape, device=image.device)
     update[image.grad > 0] = tolerance
     update[image.grad < 0] = -1 * tolerance
-    if cuda_ok:
-        update = update.cuda()
+
     image_new = image.clone() + update
     # 再预测一次
     y1 = softmax(model(image_new).squeeze(0))
@@ -76,7 +70,7 @@ if __name__ == "__main__":
     a = torch.tensor([[1, -1], [1, 2]])
     b = torch.where(a > 0, 1, -1)
 
-    image, lable = data.__getitem__(0)
+    image, lable = data.__getitem__(5)
     rimage, (a1, a2, a3), (b1, b2, b3) = attack(alexnet, image, lable, 0.01)
 
     print('label is %d "%s"' % (lable, data.category_names[lable]))

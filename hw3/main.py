@@ -48,21 +48,22 @@ def validate(data_loader, m):
                 images, labels = images.cuda(), labels.cuda()
             y_pred = m(images).squeeze()
             right_count += CalcRightCount(
-                np.argmax(y_pred.cpu().numpy(), 1), labels.cpu().numpy())
+                np.argmax(y_pred.cpu().numpy(), 1), labels.cpu().numpy()
+            )
             del images, labels, y_pred
             torch.cuda.empty_cache()
     return right_count
 
-#指定模型类别
-model_class = image_classification.GYHF_VGG
+
+# 指定模型类别
+model_class = image_classification.GYHF_LetNet5
 
 # 训练数据集
-data_train = image_set.LearningSet(
-    TRAIN_DIR, model_class.input_size)
+data_train = image_set.LearningSet(TRAIN_DIR, model_class.input_size)
 class_count = data_train.GetClassNum()  # 获取类别数量
 
 # 模型实例化
-SAVE_PATH = os.path.join(current_dir, str(model_class)+".pkl")
+SAVE_PATH = os.path.join(current_dir, str(model_class) + ".pkl")
 if os.path.exists(SAVE_PATH):
     print("model has been loaded from file.")
     model = torch.load(SAVE_PATH)
@@ -82,42 +83,56 @@ if cuda_ok:
 nbatch_predict = 32
 # 验证集数据加载器
 # 训练数据验证
-data_validation1 = image_set.LearningSet(
-    TRAIN_DIR, model.input_size, False)
+data_validation1 = image_set.LearningSet(TRAIN_DIR, model.input_size, False)
 data_loader_validation1 = torch.utils.data.DataLoader(
-    data_validation1, nbatch_predict, shuffle=False,
-    num_workers=multiprocessing.cpu_count())
+    data_validation1,
+    nbatch_predict,
+    shuffle=False,
+    num_workers=multiprocessing.cpu_count(),
+)
 # 验证集数据验证
-data_validation2 = image_set.LearningSet(
-    VALIDATION_DIR, model.input_size, False)
+data_validation2 = image_set.LearningSet(VALIDATION_DIR, model.input_size, False)
 data_loader_validation2 = torch.utils.data.DataLoader(
-    data_validation2, nbatch_predict, shuffle=False,
-    num_workers=multiprocessing.cpu_count())
+    data_validation2,
+    nbatch_predict,
+    shuffle=False,
+    num_workers=multiprocessing.cpu_count(),
+)
 
 # 训练模型
 print("waiting for training...")
 for i in range(20):
     print("iters ", i, " ...")
     model = model_manager.train_model(
-        model, data_train, cuda_ok=cuda_ok, epochs=10, nbatch = 32,lr = 0.001, weight_decay = 0)
+        model,
+        data_train,
+        cuda_ok=cuda_ok,
+        epochs=10,
+        nbatch=32,
+        lr=0.001,
+        weight_decay=0,
+    )
     with torch.no_grad():
         # 每10轮保存一次模型，同时验证一下正确率
         # 模型保存
         torch.save(model, SAVE_PATH)
         # 用验证集和训练集验证:
         print("waiting for validation...")
-        train_accuracy = 100 * \
-            validate(data_loader_validation1, model)/data_validation1.GetLen()
+        train_accuracy = (
+            100 * validate(data_loader_validation1, model) / data_validation1.GetLen()
+        )
         print("train accuracy:", train_accuracy, "%")
-        validation_accuracy = 100 * \
-            validate(data_loader_validation2, model)/data_validation2.GetLen()
+        validation_accuracy = (
+            100 * validate(data_loader_validation2, model) / data_validation2.GetLen()
+        )
         print("validation accuracy:", validation_accuracy, "%")
 
 # 测试集
 model.eval()
 data_test = image_set.TestingSet(TEST_DIR, model.input_size)
 data_loader_test = torch.utils.data.DataLoader(
-    data_test, nbatch_predict, shuffle=False, num_workers=multiprocessing.cpu_count())
+    data_test, nbatch_predict, shuffle=False, num_workers=multiprocessing.cpu_count()
+)
 y_test = []
 print("waiting for testing...")
 with torch.no_grad():
@@ -130,6 +145,7 @@ with torch.no_grad():
         del images, y_pred
         torch.cuda.empty_cache()
 # 测试结果存入文件
-pd.DataFrame({"Id": [x for x in range(data_test.GetLen())],
-              "Category":  y_test}).to_csv(TEST_REULST_PATH, index=False)
+pd.DataFrame({"Id": [x for x in range(data_test.GetLen())], "Category": y_test}).to_csv(
+    TEST_REULST_PATH, index=False
+)
 print("test result has been written into ./data/result.csv")
