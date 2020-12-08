@@ -29,7 +29,7 @@ def train_model(
     nbatch=32,
     device=torch.device("cpu"),
     lr=0.001,
-    weight_decay=0.01,
+    weight_decay=0,
     opt=0,  # 0 Adam,1 SGDM,
 ):
     # dataloader
