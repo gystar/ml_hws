@@ -18,15 +18,16 @@ importlib.reload(image_set)
 importlib.reload(model_manager)
 importlib.reload(image_classification)
 
-current_dir = os.path.dirname(__file__)
-TRAIN_DIR = os.path.join(current_dir, "data/training")
-VALIDATION_DIR = os.path.join(current_dir, "data/validation")
-TEST_DIR = os.path.join(current_dir, "data/testing")
-TEST_REULST_PATH = os.path.join(current_dir, "./data/result.csv")
+
+TRAIN_DIR = "./data/training"
+VALIDATION_DIR = "./data/validation"
+TEST_DIR = "./data/testing"
+TEST_REULST_PATH = "./data/result.csv"
 
 # 用以对cpu和GPU进行兼容
-cuda_ok = torch.cuda.is_available()
-print("Cuda is available" if cuda_ok else "There is no gpu available.")
+use_cuda = True & torch.cuda.is_available()
+device = torch.device("cuda" if use_cuda else "cpu")
+print("Use Cuda." if use_cuda else "Use cpu.")
 
 
 def CalcRightCount(y, t):
@@ -44,8 +45,7 @@ def validate(data_loader, m):
     with torch.no_grad():  # 不构建计算图
         for _, info in enumerate(data_loader):
             images, labels = info
-            if cuda_ok:
-                images, labels = images.cuda(), labels.cuda()
+            images, labels = images.to(device), labels.to(device)
             y_pred = m(images).squeeze()
             right_count += CalcRightCount(
                 np.argmax(y_pred.cpu().numpy(), 1), labels.cpu().numpy()
@@ -56,31 +56,25 @@ def validate(data_loader, m):
 
 
 # 指定模型类别
-model_class = image_classification.GYHF_LetNet5
+model_class = image_classification.GYHF_AlexNet
 
 # 训练数据集
 data_train = image_set.LearningSet(TRAIN_DIR, model_class.input_size)
 class_count = data_train.GetClassNum()  # 获取类别数量
 
 # 模型实例化
-SAVE_PATH = os.path.join(current_dir, str(model_class) + ".pkl")
+SAVE_PATH = str(model_class) + ".pkl"
 if os.path.exists(SAVE_PATH):
     print("model has been loaded from file.")
     model = torch.load(SAVE_PATH)
-    model = model.cuda() if cuda_ok else model.cpu()
 else:
     print("create a new model.")
     model = model_class(class_count)
 
-if cuda_ok:
-    try:  # 如果显存不够，可能无法用GPU进行计算
-        model = model.cuda()
-    except:
-        print("There is no enough GPU memory for model,use cpu instead.")
-        model = model.cpu()
-        cuda_ok = False
+model = model.to(device)
 
-nbatch_predict = 32
+
+nbatch_predict = 128
 # 验证集数据加载器
 # 训练数据验证
 data_validation1 = image_set.LearningSet(TRAIN_DIR, model.input_size, False)
@@ -101,19 +95,20 @@ data_loader_validation2 = torch.utils.data.DataLoader(
 
 # 训练模型
 print("waiting for training...")
-for i in range(20):
+for i in range(5):
     print("iters ", i, " ...")
     model = model_manager.train_model(
         model,
         data_train,
-        cuda_ok=cuda_ok,
-        epochs=10,
-        nbatch=32,
-        lr=0.001,
+        device=device,
+        epochs=5,
+        nbatch=128,  # 可根据显存和模型大小来调整batchsize的大小
+        lr=0.01,
         weight_decay=0,
+        opt=1,
     )
     with torch.no_grad():
-        # 每10轮保存一次模型，同时验证一下正确率
+        # 每5轮保存一次模型，同时验证一下正确率
         # 模型保存
         torch.save(model, SAVE_PATH)
         # 用验证集和训练集验证:
@@ -137,8 +132,7 @@ y_test = []
 print("waiting for testing...")
 with torch.no_grad():
     for i, images in enumerate(data_loader_test):
-        if cuda_ok:
-            images = images.cuda()
+        images = images.to(device)
         y_pred = model(images).cpu().squeeze()
         # 获得类别，即最大元素下标
         y_test.extend(list(np.argmax(y_pred.numpy(), 1)))
