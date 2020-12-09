@@ -1,23 +1,16 @@
 """
-Author: your name
-Date: 2020-12-07 19:11:58
-LastEditTime: 2020-12-08 11:45:56
-LastEditors: your name
-Description: In User Settings Edit
-FilePath: /ml_hws/hw6/fgsm.py
-"""
-"""
 Author: gystar
-Date: 2020-12-07 10:17:04
-LastEditTime: 2020-12-07 17:20:41
-LastEditors: Please set LastEditors
+Date: 2020-12-07 19:11:58
+LastEditors: gystar
+LastEditTime: 2020-12-09 15:02:49
+FilePath: /ml_hws/hw6/fgsm.py
 Description:
+    Fast Gradient Sign Method(FGSM)     
     FGSM方式的non-targeted的attack实现
     non-targeted:在约束条件下和真实label越远越好
     non-targeted:在约束条件下和真实label越远越好,同时和目标label越近越好
     在原图片的基础上，对于损失函数求图片的梯度，梯度大于0则加上最大偏移值e，否则减去e
     一次方向传播再修正即可得到目标图片
-FilePath: /ml_hws/hw6/fgsm.py
 """
 import torch
 import random
@@ -27,15 +20,15 @@ import multiprocessing
 
 """
 description: 白盒non-targeted的FGSM attack的实现
-param {*} model
-param {*} image
-param {*} label
-param {*} tolerance：允许修改的范围
+param {0} model
+param {1} image
+param {2} label
+param {3} tolerance：允许修改的范围
 return {*}：(生成的攻击图片,(原图的预测的标签，预测的概率，真实标签的概率),(生成图片的预测的标签，预测的概率，真实标签的概率))
 """
 
 
-def white_attack(model, image, label, tolerance):
+def white_nontarget_attack(model, image, label, tolerance):
     random.seed(10)
     image = image.unsqueeze(0)
 
@@ -83,20 +76,14 @@ if __name__ == "__main__":
 
     model = models.vgg16(pretrained=True)
     image, lable = data.__getitem__(6)
-    rimage, (a1, a2, a3), (b1, b2, b3) = white_attack(model, image, lable, 0.01)
+    rimage, (a1, a2, a3), (b1, b2, b3) = white_nontarget_attack(model, image, lable, 0.001)
 
     print('label is %d "%s"' % (lable, data.category_names[lable]))
-    print(
-        'origin:\nprediction is %d(%f) "%s", \nlabel probability: %f'
-        % (a1, a2, data.category_names[a1], a3)
-    )
+    print('origin:\nprediction is %d(%f) "%s", \nlabel probability: %f' % (a1, a2, data.category_names[a1], a3))
     plt.figure()
     plt.imshow(utils.tensor2numpy(image))
     plt.show()
-    print(
-        'attack result:\nprediction is %d(%f) "%s", \nlabel probability: %f'
-        % (b1, b2, data.category_names[b1], b3)
-    )
+    print('attack result:\nprediction is %d(%f) "%s", \nlabel probability: %f' % (b1, b2, data.category_names[b1], b3))
     plt.figure()
     plt.imshow(rimage)
     plt.show()

@@ -47,9 +47,7 @@ def validate(data_loader, m):
             images, labels = info
             images, labels = images.to(device), labels.to(device)
             y_pred = m(images).squeeze()
-            right_count += CalcRightCount(
-                np.argmax(y_pred.cpu().numpy(), 1), labels.cpu().numpy()
-            )
+            right_count += CalcRightCount(np.argmax(y_pred.cpu().numpy(), 1), labels.cpu().numpy())
             del images, labels, y_pred
             torch.cuda.empty_cache()
     return right_count
@@ -103,7 +101,7 @@ for i in range(5):
         device=device,
         epochs=5,
         nbatch=128,  # 可根据显存和模型大小来调整batchsize的大小
-        lr=0.01,
+        lr=0.001,
         weight_decay=0,
         opt=1,
     )
@@ -113,21 +111,15 @@ for i in range(5):
         torch.save(model, SAVE_PATH)
         # 用验证集和训练集验证:
         print("waiting for validation...")
-        train_accuracy = (
-            100 * validate(data_loader_validation1, model) / data_validation1.GetLen()
-        )
+        train_accuracy = 100 * validate(data_loader_validation1, model) / data_validation1.GetLen()
         print("train accuracy:", train_accuracy, "%")
-        validation_accuracy = (
-            100 * validate(data_loader_validation2, model) / data_validation2.GetLen()
-        )
+        validation_accuracy = 100 * validate(data_loader_validation2, model) / data_validation2.GetLen()
         print("validation accuracy:", validation_accuracy, "%")
 
 # 测试集
 model.eval()
 data_test = image_set.TestingSet(TEST_DIR, model.input_size)
-data_loader_test = torch.utils.data.DataLoader(
-    data_test, nbatch_predict, shuffle=False, num_workers=multiprocessing.cpu_count()
-)
+data_loader_test = torch.utils.data.DataLoader(data_test, nbatch_predict, shuffle=False, num_workers=multiprocessing.cpu_count())
 y_test = []
 print("waiting for testing...")
 with torch.no_grad():
@@ -139,7 +131,5 @@ with torch.no_grad():
         del images, y_pred
         torch.cuda.empty_cache()
 # 测试结果存入文件
-pd.DataFrame({"Id": [x for x in range(data_test.GetLen())], "Category": y_test}).to_csv(
-    TEST_REULST_PATH, index=False
-)
+pd.DataFrame({"Id": [x for x in range(data_test.GetLen())], "Category": y_test}).to_csv(TEST_REULST_PATH, index=False)
 print("test result has been written into ./data/result.csv")
