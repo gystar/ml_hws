@@ -29,7 +29,6 @@ return {*}：(生成的攻击图片,(原图的预测的标签，预测的概率�
 
 
 def white_nontarget_attack(model, image, label, tolerance):
-    random.seed(10)
     image = image.unsqueeze(0)
 
     softmax = torch.nn.functional.softmax  # 预测结果需要转化为概率方便观察
@@ -76,6 +75,10 @@ if __name__ == "__main__":
 
     model = models.vgg16(pretrained=True)
     image, lable = data.__getitem__(6)
+    y = torch.nn.functional.softmax(model(image.unsqueeze(0))[0])
+    print(y[lable])
+    y = torch.nn.functional.softmax(model(image.unsqueeze(0))[0])
+    print(y[lable])
     rimage, (a1, a2, a3), (b1, b2, b3) = white_nontarget_attack(model, image, lable, 0.001)
 
     print('label is %d "%s"' % (lable, data.category_names[lable]))

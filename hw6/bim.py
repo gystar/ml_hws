@@ -24,13 +24,14 @@ param {*} model
 param {*} image
 param {*} label
 param {*} tolerance:每个像素允许改变的幅度
-param {*} epochs：训练轮次，建议大于10
+param {*} step_percent:每次更新的幅度系数，步长=step_percent*tolerance
+param {*} epochs：训练轮次
 return {*}(生成的攻击图片,(原图的预测的标签，预测的概率，真实标签的概率),(生成图片的预测的标签，预测的概率，真实标签的概率))
 """
 
 
-def white_nontarget_attack(model, image, label, tolerance, epochs=100):
-    step = tolerance / 10  # 每次更新的大小
+def white_nontarget_attack(model, image, label, tolerance, step_percent=0.1, epochs=10):
+    step = tolerance * step_percent  # 每次更新的大小
     image = image.unsqueeze(0)
     softmax = torch.nn.functional.softmax  # 预测结果需要转化为概率方便观察
 
@@ -54,6 +55,7 @@ def white_nontarget_attack(model, image, label, tolerance, epochs=100):
         image = torch.where(image < floor, floor, image)
         image = torch.where(image > ceiling, ceiling, image).detach()  # 若不detach下一次循环会报错
 
+    y = model(image).squeeze(0)
     # 将结果解析一下，并存入cpu释放返回
     y0, y = softmax(y0).detach().cpu(), softmax(y).detach().cpu()
     # 转化为在cpu上的图像矩阵
@@ -72,6 +74,7 @@ def white_nontarget_attack(model, image, label, tolerance, epochs=100):
 
 ###test
 if __name__ == "__main__":
+    random.seed(100)
     import data_set
     import importlib
     import numpy as np
@@ -85,6 +88,8 @@ if __name__ == "__main__":
 
     model = models.vgg16(pretrained=True)
     image, lable = data.__getitem__(6)
+    y = torch.nn.functional.softmax(model(image.unsqueeze(0))[0])
+    print(y[lable])
     rimage, (a1, a2, a3), (b1, b2, b3) = white_nontarget_attack(model.cuda(), image.cuda(), lable, 0.001)
 
     print('label is %d "%s"' % (lable, data.category_names[lable]))
