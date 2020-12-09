@@ -31,6 +31,7 @@ return {*}(生成的攻击图片,(原图的预测的标签，预测的概率，�
 
 
 def white_nontarget_attack(model, image, label, tolerance, step_percent=0.1, epochs=10):
+    model.eval()  # 预测的时候一定要用此函数
     step = tolerance * step_percent  # 每次更新的大小
     image = image.unsqueeze(0)
     softmax = torch.nn.functional.softmax  # 预测结果需要转化为概率方便观察
