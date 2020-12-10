@@ -103,7 +103,7 @@ for i in range(5):
         nbatch=128,  # 可根据显存和模型大小来调整batchsize的大小
         lr=0.001,
         weight_decay=0,
-        opt=1,
+        opt=0,
     )
     with torch.no_grad():
         # 每5轮保存一次模型，同时验证一下正确率
