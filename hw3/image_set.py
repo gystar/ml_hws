@@ -10,7 +10,7 @@ import numpy as np
 
 # 现在一般都要进行标准化操作
 # 这些数值与pytorch官网提供的一致，也方便直接使用官方pretrained的model
-IMAGE_MEAM = [0.485, 0.456, 0.406]
+IMAGE_MEAN = [0.485, 0.456, 0.406]
 IMAGE_STD = [0.229, 0.224, 0.225]
 
 # 进行验证时，使用图片转换器，转换成tensor，不需要对validation做翻转等操作
@@ -20,7 +20,7 @@ def compose_transformer_eval(ouput_size):
             transforms.Resize((ouput_size[0] + 32, ouput_size[1] + 32)),  #
             transforms.CenterCrop(ouput_size),
             transforms.ToTensor(),  # 转换成Tensor
-            transforms.Normalize(mean=IMAGE_MEAM, std=IMAGE_STD),
+            transforms.Normalize(mean=IMAGE_MEAN, std=IMAGE_STD),
         ]
     )
     return transformer_eval
@@ -35,7 +35,7 @@ def compose_transformer_train(ouput_size):
             transforms.RandomHorizontalFlip(),  # 随机水平翻转图片
             transforms.RandomRotation(15),  # 随机旋转图片
             transforms.ToTensor(),  # 转换成tensor(其中前面加To,只是固定表达方式）
-            transforms.Normalize(mean=IMAGE_MEAM, std=IMAGE_STD),
+            transforms.Normalize(mean=IMAGE_MEAN, std=IMAGE_STD),
         ]
     )
     return transformer_train
@@ -47,7 +47,7 @@ def tensor2numpy(t: torch.tensor):
     # 将tensor(c,w,h)反解析为RGB的图像矩阵(w,h,c),方便画出原图
     t = t.detach().cpu()
     std = torch.tensor(IMAGE_STD)
-    mean = torch.tensor(IMAGE_MEAM)
+    mean = torch.tensor(IMAGE_MEAN)
     for i in range(t.shape[1]):  # 先反标准化
         for j in range(t.shape[2]):
             t[:, i, j] = t[:, i, j] * std + mean
