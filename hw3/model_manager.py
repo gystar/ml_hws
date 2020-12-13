@@ -25,12 +25,12 @@ importlib.reload(image_classification)
 def train_model(
     model,
     data,
-    epochs=10,
-    nbatch=32,
     device=torch.device("cpu"),
     lr=0.001,
-    weight_decay=0,
+    epochs=10,
+    nbatch=32,
     opt=0,  # 0 Adam,1 SGDM,
+    weight_decay=0,
 ):
     # dataloader
     data_loader_train = torch.utils.data.DataLoader(
@@ -46,15 +46,12 @@ def train_model(
     # NLLLoss:negative log likelihood loss
     loss_func = torch.nn.CrossEntropyLoss()  # 损失函数
     if opt == 0:
-        opt = torch.optim.Adam(
-            model.parameters(), lr=lr, weight_decay=weight_decay
-        )  # 优化器（梯度下降的具体算法Adam）
+        opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)  # 优化器（梯度下降的具体算法Adam）
     else:
-        opt = torch.optim.SGD(
-            model.parameters(), lr=lr, weight_decay=weight_decay, momentum=0.9
-        )
+        opt = torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay, momentum=0.9)
 
     loss = np.zeros(epochs)
+    model = model.to(device)
     model.train()  # 会打开dropout、batchnorm等
     for i in range(epochs):
         loss_sum = 0
@@ -84,7 +81,7 @@ def train_model(
                 time_pre = time_now
             del images, labels, y_pred, loss_cur
             torch.cuda.empty_cache()
-        loss[i] = loss_sum / math.ceil(data.GetLen() / nbatch)
+        loss[i] = loss_sum / math.ceil(data.__len__() / nbatch)
         print(
             "[epochs  %d / %d ] loss: %f duration: %f"
             % (
@@ -102,3 +99,22 @@ def train_model(
     plt.ylabel("loss")
     plt.show()
     return model
+
+
+def predict(model, device, dir, nbatch=128):
+    # 对目录中的图片进行预测
+    model.eval()  # 会关闭dropout、batchnorm等
+    model = model.to(device)
+    data_test = image_set.TestingSet(dir, model.input_size)
+    data_loader_test = torch.utils.data.DataLoader(data_test, nbatch, shuffle=False, num_workers=multiprocessing.cpu_count())
+    y_test = []
+    with torch.no_grad():
+        for _, images in enumerate(data_loader_test):
+            images = images.to(device)
+            y_pred = model(images).detach().cpu().squeeze()
+            # 获得类别，即最大元素下标
+            y_test.extend(list(np.argmax(y_pred.numpy(), 1)))
+            del images, y_pred
+            torch.cuda.empty_cache()
+
+    return y_test
