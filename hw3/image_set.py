@@ -39,6 +39,7 @@ class LearningSet(torch.utils.data.Dataset):  # 继承父类，命名为Learings
 
         # 将文件名和对应类别获取并存到一个列表中
         names = os.listdir(self.dir)
+        names.sort()  # 按照文件名排序
         labels = [int((name.split("_"))[0]) for name in names]
         self.images = [names, labels]
         # 相当于int[]定义了一个函数，表示映射：names->int[]
@@ -100,6 +101,7 @@ class TestingSet(torch.utils.data.Dataset):  # 继承
         self.dir = dir
         # 将文件名和对应类别获取并存到一个列表中
         names = os.listdir(self.dir)
+        names.sort()  # 按照文件名排序
         self.images = names
         self.ouput_size = ouput_size
 
