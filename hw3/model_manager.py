@@ -46,9 +46,13 @@ def train_model(
     # NLLLoss:negative log likelihood loss
     loss_func = torch.nn.CrossEntropyLoss()  # 损失函数
     if opt == 0:
-        opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)  # 优化器（梯度下降的具体算法Adam）
+        opt = torch.optim.Adam(
+            model.parameters(), lr=lr, weight_decay=weight_decay
+        )  # 优化器（梯度下降的具体算法Adam）
     else:
-        opt = torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay, momentum=0.9)
+        opt = torch.optim.SGD(
+            model.parameters(), lr=lr, weight_decay=weight_decay, momentum=0.9
+        )
 
     loss = np.zeros(epochs)
     model = model.to(device)
@@ -101,12 +105,14 @@ def train_model(
     return model
 
 
-def predict(model, device, dir, nbatch=128):
+def predict(model, device, dir, input_size, nbatch=128):
     # 对目录中的图片进行预测
     model.eval()  # 会关闭dropout、batchnorm等
     model = model.to(device)
-    data_test = image_set.TestingSet(dir, model.input_size)
-    data_loader_test = torch.utils.data.DataLoader(data_test, nbatch, shuffle=False, num_workers=multiprocessing.cpu_count())
+    data_test = image_set.TestingSet(dir, input_size)
+    data_loader_test = torch.utils.data.DataLoader(
+        data_test, nbatch, shuffle=False, num_workers=multiprocessing.cpu_count()
+    )
     y_test = []
     with torch.no_grad():
         for _, images in enumerate(data_loader_test):

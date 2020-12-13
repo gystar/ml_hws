@@ -30,21 +30,19 @@ return {*}：(生成的攻击图片,(原图的预测的标签，预测的概率�
 
 def white_nontarget_attack(model, image, label, tolerance):
     model.eval()  # 预测的时候一定要用此函数
-    image = image.unsqueeze(0)
-
+    image = image.unsqueeze(0)#对原来的image增加维度batch，并放在第一维（0）
+    label = torch.tensor([label]).to(image.device)#将label转化为tensor并且放在image同样的位置
     softmax = torch.nn.functional.softmax  # 预测结果需要转化为概率方便观察
-    # 会计算输入图片矩阵的导数
-    image.requires_grad = True
-    y = softmax(model(image).squeeze(0))
-    # 损失函数：使对真实值label的预测尽可能小
-    loss = -1 * y[label].squeeze(0)
-    loss.backward()
+    image.requires_grad =  True#要求对image进行求梯度
+    y = model(image)#调用model计算预测值y
+    Loss_func = torch.nn.CrossEntropyLoss()#定义损失函数框架，注意，crossentropy已经有softmax，所以不需要对y进行softmax
+    Loss = -1*Loss_func(y,label)#想要得到最不可能的结果，所以在原来的损失函数前加“负号”
+    Loss.backward() #反向传播，为了能够计算出梯度
+    image = image-tolerance*image.grad.sign()#对原来的input图片进行修饰，一步跨到最大限度（对计算出来的梯度使用sign符号函数，结果要么是正的最梯度容忍值，要么是最负容忍值）
+    y = softmax(y.squeeze(0))#输出y除去batch维度（0）的概率（softmax）
+    y1 = softmax(model(image).squeeze(0))#对比输出修正后的y（除去第一维度batch）的概率
 
-    # 更新输入的图片
-    image = image.detach().clone() + image.grad.sign() * tolerance
-    # 用生成的图片进行预测
-    y1 = softmax(model(image).squeeze(0))
-
+    
     # 将结果保存到cpu上释放显存
     y, y1 = y.detach().cpu(), y1.detach().cpu()
     # 转化为在cpu上的图像矩阵
