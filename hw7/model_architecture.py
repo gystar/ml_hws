@@ -11,7 +11,6 @@ import torchvision.models as models
 
 # 使用depthwise和pointwise方法对卷基层进行简化，减少其参数数量
 def SmartConv2d(origin: torch.nn.Conv2d):
-    # def SmartConv2d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, bias=True):
     # 使用两个卷积层来来代替之前的一个卷积层
     # 第一个Conv2d:先使用torch.nn.Conv2d的gourp属性达到depthwise的效果
     # 第二个Conv2d:使用大小为1的卷积核来实现各个channel间的联系
@@ -107,4 +106,4 @@ if __name__ == "__main__":
     image = torch.randn((1, 3, 224, 224))
     print(snet(image))
     # 保存一下，比较大小，可以看到压缩后的大小接近1/10
-    torch.save(snet.state_dict(), "smart_resnet18.bin")
+    torch.save(snet.state_dict(), "./data/smart_resnet18.bin")
