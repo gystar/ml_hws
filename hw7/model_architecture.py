@@ -106,4 +106,4 @@ if __name__ == "__main__":
     image = torch.randn((1, 3, 224, 224))
     print(snet(image))
     # 保存一下，比较大小，可以看到压缩后的大小接近1/10
-    torch.save(snet.state_dict(), "./data/smart_resnet18.bin")
+  
