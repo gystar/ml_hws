@@ -122,7 +122,11 @@ class EN2CN(nn.Module):
         self.decoder = Decoder(cn_vsize, 256, self.hsize, self.rnn_layers)
         self.attention = Attention(self.hsize)
 
-    def forward(self, x, y=None):
+    def forward(
+        self,
+        x,  # en语句
+        y=None,  # cn语句，当正式翻译的时候不要输入此参数
+    ):
         # 训练的时候由于使用sampling，所以会使用y即正确结果
         # 正式翻译的时候不需要输入y
         return self.__inference__(x) if y == None else self.__train__(x, y)
