@@ -122,11 +122,16 @@ class EN2CN(nn.Module):
         self.decoder = Decoder(cn_vsize, 256, self.hsize, self.rnn_layers)
         self.attention = Attention(self.hsize)
 
-    def forward(self, x, y):
+    def forward(self, x, y=None):
+        # 训练的时候由于使用sampling，所以会使用y即正确结果
+        # 正式翻译的时候不需要输入y
+        return self.__inference__(x) if y == None else self.__train__(x, y)
+
+    # 训练的时候调用此函数
+    def __train__(self, x, y):
         # en语句x:[batch, seq_len1]
         # cn语句y:[batch, seq_len2]
         # 要使用sampling需要依赖y,有概率直接用预测的值而不是y中的值
-        is_train = y != None
         encoder_ouput, h = self.encoder(x)
         # encoder的输出h[num_layers * 2, batch, encoder_hidden_size]
         # decoder的输入h[num_layers * 1, batch, encoder_hidden_size*2]
@@ -144,7 +149,9 @@ class EN2CN(nn.Module):
 
         return ret
 
-    def inference(self, x):
+    # 正式翻译的时候会调用此函数
+    def __inference__(self, x):
+        # en语句x:[batch, seq_len1]
         return None
 
 
