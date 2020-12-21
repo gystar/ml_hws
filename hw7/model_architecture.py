@@ -7,20 +7,21 @@ FilePath: /ml_hws/hw7/model_architecture.py
 Description: 构造一个小的模型，能达到接近原有大模型的效果。
 """
 import torch
+from torch import nn
 import torchvision.models as models
 
 # 使用depthwise和pointwise方法对卷基层进行简化，减少其参数数量
-def SmartConv2d(origin: torch.nn.Conv2d):
+def SmartConv2d(origin: nn.Conv2d):
     # 使用两个卷积层来来代替之前的一个卷积层
     # 第一个Conv2d:先使用torch.nn.Conv2d的gourp属性达到depthwise的效果
     # 第二个Conv2d:使用大小为1的卷积核来实现各个channel间的联系
-    return torch.nn.Sequential(
-        torch.nn.Conv2d(
+    return nn.Sequential(#
+        nn.Conv2d(
             # 令groups = out_channels = 输入的in_channels
             # 则每个卷积核分别对一个channel进行卷积
             in_channels=origin.in_channels,
             out_channels=origin.in_channels,
-            groups=origin.in_channels,
+            groups=origin.in_channels,#将filter分为三层，每层单独对应一个channel，实现每个channel的不相关
             kernel_size=origin.kernel_size,
             stride=origin.stride,
             padding=origin.padding,
@@ -49,7 +50,7 @@ class SmartResnet18(torch.nn.Module):
         self.resnet18.conv1 = SmartConv2d(self.resnet18.conv1)
         # 修改每个layerx中的conv2d
         for i in range(4):
-            layer = getattr(self.resnet18, "layer" + str(i + 1))
+            layer = getattr(self.resnet18, "layer" + str(i + 1))#根据字符串找属性“layer”,i=0,1,2,3;str(i+1)="1","2","3","4"
             for j in range(2):
                 block = layer[j]
                 block.conv1 = SmartConv2d(block.conv1)
@@ -106,4 +107,6 @@ if __name__ == "__main__":
     image = torch.randn((1, 3, 224, 224))
     print(snet(image))
     # 保存一下，比较大小，可以看到压缩后的大小接近1/10
+    resnet18 = models.resnet18(pretrained=False, num_classes=11)
   
+

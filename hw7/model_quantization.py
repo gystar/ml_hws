@@ -13,16 +13,16 @@ import pickle
 
 
 def save_model_f16(model: torch.nn.Module(), path):
-    compressed_dict = {}
+    compressed_dict = {}#compressed_dict是字典类型{}
     for (name, value) in model.state_dict().items():
         value = np.float64(value.cpu().numpy())
-        # 只对矩阵进行压缩
-        compressed_dict[name] = np.float16(value) if type(value) == np.ndarray else value
-    pickle.dump(compressed_dict, open(path, "wb"))
+        # 只对矩阵进行压缩    字典类型compressed_dict[name]，如果没有索引到name，就自动保存，如果已有name则更新 
+        compressed_dict[name] = np.float16(value) if type(value) == np.ndarray else value#type判断（）类型
+    pickle.dump(compressed_dict, open(path, "wb"))#序列化
 
 
 def load_model_f16(model: torch.nn.Module(), path):
-    compressed_dict = pickle.load(open(path, "rb"))
+    compressed_dict = pickle.load(open(path, "rb"))#"rb"读取权限
     origin_dict = {}
     for (name, value) in compressed_dict.items():
         value = torch.tensor(value)
