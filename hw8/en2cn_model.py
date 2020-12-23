@@ -34,35 +34,6 @@ class Encoder(nn.Module):
         return output, h
 
 
-# 输入encoder的output和decoder的h，返回新的h作为decoder的context
-# 参数通过自动学习得到,可以得到合理的attention计算方法
-class Attention(nn.Module):
-    def __init__(
-        self,
-        encoder_hidden_size,  # Encoder中双向GRU的hidden_size
-    ):
-        super(Attention, self).__init__()
-        self.attention_func = nn.Sequential(
-            nn.Linear(2 * encoder_hidden_size, 256),
-            nn.Linear(256, 256),
-            nn.Linear(256, 2 * encoder_hidden_size),
-        )
-
-    def forward(self, x, y):
-        # x:Encoder中的output[batch, seq_len, encoder_hidden_size*2]
-        # y:Decoder的隐藏层[num_layers * 1, batch, encoder_hidden_size*2]
-        # 返回Attention方法得到的Decoder的context
-        # 使用xwy计算得到权系数a，再对x带权求和得到context
-        # 每个隐藏层分别和x进行attention运算
-        # 权重矩阵weights[batch, seq_len, num_layers]
-        # 高纬矩阵乘法matmul,只匹配最后两个维度，前面的维度若不一致会作braodcast转换
-        weights = self.attention_func(x).matmul(y.permute(1, 2, 0))
-        # 对encoder的各个h带权求和即可得到attention结果
-        # 这个地方注意返回size应该和y保持一致,因此最后一步进行转置
-        context = x.permute(0, 2, 1).matmul(weights).permute(2, 0, 1)
-        return context
-
-
 class Decoder(nn.Module):
     def __init__(
         self,
@@ -85,9 +56,7 @@ class Decoder(nn.Module):
         )
         # h转换为onehot编码分布
         self.hidden2onehot = nn.Sequential(
-            nn.Linear(encoder_hidden_size * 2, 256),
-            nn.Linear(256, 256),
-            nn.Linear(256, vsize),
+            nn.Linear(encoder_hidden_size * 2, vsize),
         )
 
     def forward(self, x, h):
@@ -105,21 +74,53 @@ class Decoder(nn.Module):
         return x, h
 
 
+# 输入encoder的output和decoder的h，返回新的h作为decoder的context
+# 参数通过自动学习得到,可以得到合理的attention计算方法
+# https://arxiv.org/abs/1409.0473
+class Attention(nn.Module):
+    def __init__(
+        self,
+        encoder_hidden_size,  # Encoder中双向GRU的hidden_size
+    ):
+        super(Attention, self).__init__()
+        self.attention_func = nn.Sequential(
+            nn.Linear(2 * encoder_hidden_size, 512),
+            nn.Linear(512, 512),
+            nn.Linear(512, 2 * encoder_hidden_size),
+        )
+
+    def forward(self, x, y):
+        # x:Encoder中的output[batch, seq_len, encoder_hidden_size*2]
+        # y:Decoder的隐藏层[num_layers * 1, batch, encoder_hidden_size*2]
+        # 返回Attention方法得到的Decoder的context
+        # 使用xwy计算得到权系数a，再对x带权求和得到context
+        # 每个隐藏层分别和x进行attention运算
+        # 权重矩阵weights[batch, seq_len, num_layers]
+        # 高纬矩阵乘法matmul,只匹配最后两个维度，前面的维度若不一致会作braodcast转换
+        softmax = nn.Softmax(dim=1)
+        weights = self.attention_func(x).matmul(y.permute(1, 2, 0))
+        weights = softmax(weights)
+        # 对encoder的各个h带权求和即可得到attention结果
+        # 这个地方注意返回size应该和y保持一致,因此最后一步进行转置
+        context = x.permute(0, 2, 1).matmul(weights).permute(2, 0, 1)
+        return context
+
+
 # 主要由四部分组成：encoder、decoder、attention,translater
 class EN2CN(nn.Module):
     def __init__(
         self,
         en_vsize,  # 英文字典大小
         cn_vsize,  # 中文字典大小
-        sampling=0.5,  # sampling的概率
+        sampling=1.0,  # sampling的概率
     ):
         super(EN2CN, self).__init__()
-        self.hsize = 256
-        self.rnn_layers = 3
+        self.hsize = 512
+        self.rnn_layers = 5
         self.sampling = sampling
         self.cn_vsize = cn_vsize
-        self.encoder = Encoder(en_vsize, 256, self.hsize, self.rnn_layers)
-        self.decoder = Decoder(cn_vsize, 256, self.hsize, self.rnn_layers)
+        self.encoder = Encoder(en_vsize, 512, self.hsize, self.rnn_layers)
+        self.decoder = Decoder(cn_vsize, 512, self.hsize, self.rnn_layers)
         self.attention = Attention(self.hsize)
 
     def forward(
@@ -143,13 +144,13 @@ class EN2CN(nn.Module):
         input = y[:, 0]  # 起始符
         # 预测的one-hot分布
         ret = torch.zeros((y.shape[0], y.shape[1], self.cn_vsize), device=x.device)
-        ret[0] = y[0, 0]
+        ret[:, 0, y[0, 0]] = 1.0  # 第一个都是是起始字符，放入
         for i in range(1, y.shape[1]):  # 预测出和y等长的语句
             out, h = self.decoder(input, h)
             h = self.attention(encoder_ouput, h)
             ret[:, i] = out
             pred_next = out.topk(1, axis=1)[1].squeeze()
-            input = pred_next if torch.rand((1,)).item() > self.sampling else y[:, i]
+            input = pred_next if torch.rand((1,)).item() < self.sampling else y[:, i]
 
         return ret
 

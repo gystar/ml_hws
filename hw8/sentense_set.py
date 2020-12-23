@@ -46,9 +46,9 @@ class SentenseSet(torch.utils.data.Dataset):
         self.cn_len = self.sentenses_cn.shape[1]
 
     def __len__(self):
-        return len(self.sentenses)
+        return len(self.sentenses_en)
 
-    def _getitem__(self, index):
+    def __getitem__(self, index):
         return self.sentenses_en[index], self.sentenses_cn[index]
 
 
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     dic = Dictionary()
     path = "./data/training.txt"
     data = SentenseSet(path, dic)
-    print(data._getitem__(0))
+    print(data.__getitem__(0))
     a1 = torch.tensor([1, 2, 3, 4])
     a2 = torch.tensor([6])
     a3 = torch.tensor([4, 5])
