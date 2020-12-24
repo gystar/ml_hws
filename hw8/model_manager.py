@@ -26,6 +26,7 @@ def load_model(model, path, device):
 def train_model(
     model,
     data,
+    sampling=0.5,
     device=torch.device("cpu"),
     lr=0.001,
     epochs=10,
@@ -57,7 +58,7 @@ def train_model(
         time_start, time_pre = datetime.datetime.now(), datetime.datetime.now()
         for j, (ens, cns) in enumerate(data_loader_train):
             ens, cns = ens.to(device), cns.to(device)
-            y_pred = model(ens, cns)
+            y_pred = model(ens, cns, sampling)
             # input是三维的，使用CrossEntropyLoss需要将类别维度放在第二个位置
             # 语言模型，即根据是上一个字预测下一个字
             # cns[batch, seq_len2]
@@ -78,7 +79,7 @@ def train_model(
                     )
                 )
                 time_pre = time_now
-            del src, cns, y_pred, loss_cur
+            del ens, cns, y_pred, loss_cur
             torch.cuda.empty_cache()
         loss[i] = loss_sum / math.ceil(data.__len__() / nbatch)
         print(
