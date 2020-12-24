@@ -108,13 +108,11 @@ def translate(model, device, data, nbatch=128):
     data_loader_test = torch.utils.data.DataLoader(data, nbatch, shuffle=False, num_workers=multiprocessing.cpu_count())
     y_test = []
     with torch.no_grad():
-        for _, (inputs, labels) in enumerate(data_loader_test):
-            inputs, labels = inputs.to(device), labels.to(device)
-            y_pred = model(inputs, labels).detach().cpu().squeeze()
-            # 获得类别，即最大元素下标
-            y_test.extend(list(np.argmax(y_pred.numpy(), 2)))  # 注意维度
-            del inputs, y_pred
-            torch.cuda.empty_cache()
+        for _, (inputs, _) in enumerate(data_loader_test):
+            inputs = inputs.to(device)
+            y_pred = model(inputs)
+            y_test.extend(y_pred)
+            break
 
     cn_words = [[data.dic.cn_ix2word[str(c)] for c in b] for b in y_test]
 
@@ -127,7 +125,7 @@ if __name__ == "__main__":
 
     dic = sentense_set.Dictionary()
     data = sentense_set.SentenseSet("./data/training.txt", dic)
-    model = en2cn_model.EN2CN(len(dic.en_ix2word), len(dic.cn_ix2word))
+    model = en2cn_model.EN2CN(len(dic.en_ix2word), len(dic.cn_ix2word), data.EOS, data.BOS)
     device = torch.device("cpu")
     path = "./data/model.pkl"
     if os.path.exists(path):
@@ -135,6 +133,3 @@ if __name__ == "__main__":
     # rain_model(model, data, device, epochs=5)
     # save_model(model, path)
     y = translate(model, device, data)
-    from torch import optim
-
-    a = torch.tensor([[1, 2], [3, 4]])

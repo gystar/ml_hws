@@ -3,6 +3,7 @@
 
 import torch
 from torch import nn
+import heapq
 
 
 # 输入整个句子，输出rnn的output和h
@@ -47,7 +48,7 @@ class Decoder(nn.Module):
         self.rnn = nn.GRU(
             cn_word_dim,
             # Decoder中GRU的hidden_size为encoder_hidden_size的两倍，
-            # 即Encoder中的双向h拼接在一起作为Decoder中单向GRU的context
+            # 即Encoder中的双向h拼接在一起作为Decoder中单向GRU的conheapq.nlargest(2, a, key=lambda x: x[0])text
             encoder_hidden_size * 2,
             num_layers=num_layers,
             batch_first=True,
@@ -118,6 +119,8 @@ class EN2CN(nn.Module):
         self,
         en_vsize,  # 英文字典大小
         cn_vsize,  # 中文字典大小
+        BOS,  # 起始字符
+        EOS,  # 结束字符
     ):
         super(EN2CN, self).__init__()
         self.hsize = 512
@@ -126,6 +129,8 @@ class EN2CN(nn.Module):
         self.encoder = Encoder(en_vsize, 512, self.hsize, self.rnn_layers)
         self.decoder = Decoder(cn_vsize, 512, self.hsize, self.rnn_layers)
         self.attention = Attention(self.hsize)
+        self.BOS = BOS
+        self.EOS = EOS
 
     def forward(
         self,
@@ -153,7 +158,7 @@ class EN2CN(nn.Module):
         # 将encoder的双向h拼接在一起给decoder作为context使用
         h = h.view(self.rnn_layers, 2, h.shape[1], -1)  # 见nn.GRU的output说明
         h = torch.cat((h[:, -2, :, :], h[:, -1, :, :]), dim=2)
-        input = y[:, 0]  # 起始符
+        input = self.BOS  # 起始符
         # 预测的one-hot分布
         ret = torch.zeros((y.shape[0], y.shape[1], self.cn_vsize), device=x.device)
         ret[:, 0, y[0, 0]] = 1.0  # 第一个都是是起始字符，放入
@@ -172,7 +177,60 @@ class EN2CN(nn.Module):
     # 正式翻译的时候会调用此函数
     def __inference__(self, x):
         # en语句x:[batch, seq_len1]
-        return None
+        # 作beam search找出综合得分最高的句子
+        # 得分：sum{log(p(yi|x,yi-1))}/len,相当于求最大似然估计，同时加上长度惩罚
+        logsoftmax = nn.LogSoftmax(dim=0)
+        WIDTH = 5  # beam 宽度
+        MAX_NUM = 100  # 最多找到的句子数量
+        MAX_LEN = 100  # 句子最大长度
+        rets = []
+        for b in x:  # 每个batch要分开处理，因为很可能不会同时出现结束符，导致查找结束
+            # 初始输入
+            encoder_ouput, h = self.encoder(b.unsqueeze(0))
+            input = self.BOS  # 起始字符
+            h = h.view(self.rnn_layers, 2, h.shape[1], -1)  # 见nn.GRU的output说明
+            h = torch.cat((h[:, -2, :, :], h[:, -1, :, :]), dim=2)
+
+            # 每次都从当前层生成的所有节点中选出topk进行下一次迭代计算
+            # 注意先把输出结束符的句子取出来并保存
+            ret = []  # 最终找到的所有句子(sen,score)
+            nodes = [(input, h, [], 0)]  # (要输入的字符，h，已经生成的字符，当前得分)
+            got_all = False
+            for i in range(MAX_LEN):
+                nodes_all = []  # 所有生成的新节点
+                for input, h, sen, score_sum in nodes:
+                    input = torch.tensor([input], device=x.device)
+                    out, h = self.decoder(input, h)
+                    out = logsoftmax(out.squeeze())
+                    predk = out.topk(WIDTH)
+                    h = self.attention(encoder_ouput, h)
+                    for j in range(WIDTH):
+                        pred = predk.indices[j]
+                        score_new = predk.values[j].item() + score_sum
+                        sen_new = sen.copy()
+                        sen_new.append(pred.item())
+                        if predk.indices[j] == self.EOS:  # 已经输出了结束符
+                            ret.append((sen_new, score_new / (i + 1)))
+                            got_all = len(ret) >= MAX_NUM
+                            if got_all:
+                                break
+                            continue
+                        nodes_all.append((pred, h, sen_new, score_new))
+                    if got_all:
+                        break
+                if got_all:
+                    break
+                # 选出得分最高的k个节点
+                nodes = heapq.nlargest(min(WIDTH, len(nodes_all)), nodes_all, key=lambda x: x[3])
+            if len(ret) == 0:  # 没有找到最后输出结束符的正常句子,则将现有得分最高的句子放入rets
+                sen_best = nodes[0][2]
+            else:
+                # 选出得分最高的句子
+                sen_best, _ = heapq.nlargest(1, ret, key=lambda x: x[1])[0]
+
+            rets.append(sen_best)
+
+        return rets
 
 
 # test

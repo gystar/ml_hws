@@ -21,7 +21,7 @@ device = torch.device("cuda" if True & torch.cuda.is_available() else "cpu")
 
 dic = sentense_set.Dictionary()
 data = sentense_set.SentenseSet("./data/training.txt", dic)
-model = en2cn_model.EN2CN(len(dic.en_ix2word), len(dic.cn_ix2word))
+model = en2cn_model.EN2CN(len(dic.en_ix2word), len(dic.cn_ix2word), data.EOS, data.BOS)
 
 
 if os.path.exists(MODEL_PATH):
