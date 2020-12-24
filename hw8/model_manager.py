@@ -112,8 +112,8 @@ def translate(model, device, data, nbatch=128):
             inputs = inputs.to(device)
             y_pred = model(inputs)
             y_test.extend(y_pred)
-            break
 
+    # 数字转为中文字符
     cn_words = [[data.dic.cn_ix2word[str(c)] for c in b] for b in y_test]
 
     return cn_words
