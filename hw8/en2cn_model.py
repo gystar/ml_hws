@@ -56,7 +56,9 @@ class Decoder(nn.Module):
         )
         # h转换为onehot编码分布
         self.hidden2onehot = nn.Sequential(
-            nn.Linear(encoder_hidden_size * 2, vsize),
+            nn.Linear(encoder_hidden_size * 2, 512),
+            nn.Linear(512, 512),
+            nn.Linear(512, vsize),
         )
 
     def forward(self, x, h):
@@ -86,6 +88,8 @@ class Attention(nn.Module):
         self.attention_func = nn.Sequential(
             nn.Linear(2 * encoder_hidden_size, 512),
             nn.Linear(512, 512),
+            nn.Linear(512, 512),
+            nn.Linear(512, 512),
             nn.Linear(512, 2 * encoder_hidden_size),
         )
 
@@ -112,7 +116,7 @@ class EN2CN(nn.Module):
         self,
         en_vsize,  # 英文字典大小
         cn_vsize,  # 中文字典大小
-        sampling=1.0,  # sampling的概率
+        sampling=0.5,  # sampling的概率
     ):
         super(EN2CN, self).__init__()
         self.hsize = 512
@@ -150,7 +154,9 @@ class EN2CN(nn.Module):
             h = self.attention(encoder_ouput, h)
             ret[:, i] = out
             pred_next = out.topk(1, axis=1)[1].squeeze()
-            input = pred_next if torch.rand((1,)).item() < self.sampling else y[:, i]
+            # 有概率使用正确答案（target）来指导语句的生成，使用目标语中的词输入进行预测，可以加速训练，减少误差
+            tearcher_forcing = torch.rand((1,)).item() < self.sampling
+            input = y[:, i] if tearcher_forcing else pred_next
 
         return ret
 

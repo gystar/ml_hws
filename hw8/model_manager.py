@@ -55,11 +55,14 @@ def train_model(
     for i in range(epochs):
         loss_sum = 0
         time_start, time_pre = datetime.datetime.now(), datetime.datetime.now()
-        for j, (inputs, labels) in enumerate(data_loader_train):
-            inputs, labels = inputs.to(device), labels.to(device)
-            y_pred = model(inputs, labels)
+        for j, (ens, cns) in enumerate(data_loader_train):
+            ens, cns = ens.to(device), cns.to(device)
+            y_pred = model(ens, cns)
             # input是三维的，使用CrossEntropyLoss需要将类别维度放在第二个位置
-            loss_cur = loss_func(y_pred.permute(0, 2, 1), labels)
+            # 语言模型，即根据是上一个字预测下一个字
+            # cns[batch, seq_len2]
+            # y_pred[batch, seq_len2, cn_vsize]
+            loss_cur = loss_func(y_pred[:, :-1, :].permute(0, 2, 1), cns[:, 1:])
             loss_sum += loss_cur.item()
             opt.zero_grad()
             loss_cur.backward()
@@ -75,7 +78,7 @@ def train_model(
                     )
                 )
                 time_pre = time_now
-            del inputs, labels, y_pred, loss_cur
+            del src, cns, y_pred, loss_cur
             torch.cuda.empty_cache()
         loss[i] = loss_sum / math.ceil(data.__len__() / nbatch)
         print(
