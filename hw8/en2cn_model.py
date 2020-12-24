@@ -129,6 +129,7 @@ class EN2CN(nn.Module):
         self,
         x,  # en语句
         y=None,  # cn语句，当正式翻译的时候不要输入此参数
+        sampling=0.5,  # sampling的概率,当正式翻译的时候不要输入此参数
     ):
         # 训练的时候由于使用sampling，所以会使用y即正确结果
         # 正式翻译的时候不需要输入y
