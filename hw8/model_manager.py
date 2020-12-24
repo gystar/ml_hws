@@ -66,6 +66,8 @@ def train_model(
             loss_sum += loss_cur.item()
             opt.zero_grad()
             loss_cur.backward()
+            # 防止梯度爆炸，提高训练速度，clip_grad_norm_会进行inplace
+            nn.utils.clip_grad_norm_(model.parameters(), 1)
             opt.step()
             if (j + 1) % 10 == 0:
                 time_now = datetime.datetime.now()
@@ -134,5 +136,3 @@ if __name__ == "__main__":
     # save_model(model, path)
     y = translate(model, device, data)
     from torch import optim
-
-    optim.SGD

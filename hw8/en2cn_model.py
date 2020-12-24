@@ -142,7 +142,7 @@ class EN2CN(nn.Module):
         self,
         x,
         y,
-        sampling=0.5,  # sampling的概率
+        sampling,  # sampling的概率
     ):
         # en语句x:[batch, seq_len1]
         # cn语句y:[batch, seq_len2]
