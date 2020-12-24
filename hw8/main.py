@@ -28,5 +28,5 @@ if os.path.exists(MODEL_PATH):
     model = model_manager.load_model(model, MODEL_PATH, device)
 
 for _ in range(20):
-    model_manager.train_model(model, data, sampling=0.9, device=device, epochs=5, lr=0.001, opt=0)
+    model_manager.train_model(model, data, sampling=0.8, device=device, epochs=5, lr=0.001, opt=0)
     model_manager.save_model(model, MODEL_PATH)

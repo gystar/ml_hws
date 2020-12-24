@@ -60,10 +60,9 @@ def train_model(
             ens, cns = ens.to(device), cns.to(device)
             y_pred = model(ens, cns, sampling)
             # input是三维的，使用CrossEntropyLoss需要将类别维度放在第二个位置
-            # 语言模型，即根据是上一个字预测下一个字
             # cns[batch, seq_len2]
             # y_pred[batch, seq_len2, cn_vsize]
-            loss_cur = loss_func(y_pred[:, :-1, :].permute(0, 2, 1), cns[:, 1:])
+            loss_cur = loss_func(y_pred[:, 1:, :].permute(0, 2, 1), cns[:, 1:])  # 第一个字符相同，不计算
             loss_sum += loss_cur.item()
             opt.zero_grad()
             loss_cur.backward()

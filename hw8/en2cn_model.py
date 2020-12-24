@@ -57,7 +57,9 @@ class Decoder(nn.Module):
         # h转换为onehot编码分布
         self.hidden2onehot = nn.Sequential(
             nn.Linear(encoder_hidden_size * 2, 512),
+            nn.ReLU(),
             nn.Linear(512, 512),
+            nn.ReLU(),
             nn.Linear(512, vsize),
         )
 
@@ -87,9 +89,9 @@ class Attention(nn.Module):
         super(Attention, self).__init__()
         self.attention_func = nn.Sequential(
             nn.Linear(2 * encoder_hidden_size, 512),
+            nn.ReLU(),
             nn.Linear(512, 512),
-            nn.Linear(512, 512),
-            nn.Linear(512, 512),
+            nn.ReLU(),
             nn.Linear(512, 2 * encoder_hidden_size),
         )
 
@@ -119,7 +121,7 @@ class EN2CN(nn.Module):
     ):
         super(EN2CN, self).__init__()
         self.hsize = 512
-        self.rnn_layers = 5
+        self.rnn_layers = 3
         self.cn_vsize = cn_vsize
         self.encoder = Encoder(en_vsize, 512, self.hsize, self.rnn_layers)
         self.decoder = Decoder(cn_vsize, 512, self.hsize, self.rnn_layers)
@@ -133,7 +135,7 @@ class EN2CN(nn.Module):
     ):
         # 训练的时候由于使用sampling，所以会使用y即正确结果
         # 正式翻译的时候不需要输入y
-        return self.__inference__(x) if y == None else self.__train__(x, y)
+        return self.__inference__(x) if y == None else self.__train__(x, y, sampling)
 
     # 训练的时候调用此函数
     def __train__(
@@ -158,6 +160,7 @@ class EN2CN(nn.Module):
             h = self.attention(encoder_ouput, h)
             ret[:, i] = out
             pred_next = out.topk(1, axis=1)[1].squeeze()
+            # 语言模型，即根据上一个字预测下一个字,输入了前n-1个词，预测后n-1个词
             # 有概率使用正确答案（target）来指导语句的生成，使用目标语中的词输入进行预测，可以加速训练，减少误差
             tearcher_forcing = torch.rand((1,)).item() < sampling
             input = y[:, i] if tearcher_forcing else pred_next
