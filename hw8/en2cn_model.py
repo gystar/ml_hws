@@ -150,7 +150,9 @@ class EN2CN(nn.Module):
         encoder_ouput, h = self.encoder(x)
         # encoder的输出h[num_layers * 2, batch, encoder_hidden_size]
         # decoder的输入h[num_layers * 1, batch, encoder_hidden_size*2]
-        h = torch.cat((h[: self.rnn_layers], h[self.rnn_layers :]), 2)
+        # 将encoder的双向h拼接在一起给decoder作为context使用
+        h = h.view(self.rnn_layers, 2, h.shape[1], -1)  # 见nn.GRU的output说明
+        h = torch.cat((h[:, -2, :, :], h[:, -1, :, :]), dim=2)
         input = y[:, 0]  # 起始符
         # 预测的one-hot分布
         ret = torch.zeros((y.shape[0], y.shape[1], self.cn_vsize), device=x.device)
@@ -178,3 +180,4 @@ if __name__ == "__main__":
 
     mm = EN2CN(100, 200)
     r = mm(torch.randint(0, 100, (3, 20)), torch.randint(0, 200, (3, 30)))
+    nn.GRU

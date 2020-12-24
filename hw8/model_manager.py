@@ -128,7 +128,7 @@ if __name__ == "__main__":
     dic = sentense_set.Dictionary()
     data = sentense_set.SentenseSet("./data/training.txt", dic)
     model = en2cn_model.EN2CN(len(dic.en_ix2word), len(dic.cn_ix2word))
-    device = torch.device("cuda")
+    device = torch.device("cpu")
     path = "./data/model.pkl"
     if os.path.exists(path):
         model = load_model(model, path, device)
@@ -136,3 +136,5 @@ if __name__ == "__main__":
     # save_model(model, path)
     y = translate(model, device, data)
     from torch import optim
+
+    a = torch.tensor([[1, 2], [3, 4]])
