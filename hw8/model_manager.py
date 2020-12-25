@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch import optim
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -31,7 +32,7 @@ def train_model(
     lr=0.001,
     epochs=10,
     nbatch=32,
-    opt=0,  # 0 Adam,1 SGDM,
+    opt=0,  # 0 Adam,1 SGDM,2 Adadelta
     momentum=0.9,
     weight_decay=0,
 ):
@@ -43,12 +44,15 @@ def train_model(
         pin_memory=False,
         shuffle=True,
     )
-    PAD = 0  # 填充字符
+
     loss_func = nn.CrossEntropyLoss(ignore_index=0)
+
     if opt == 0:
-        opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)  # 优化器（梯度下降的具体算法Adam）
+        opt = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)  # 优化器（梯度下降的具体算法Adam）
+    elif opt == 1:
+        opt = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay, momentum=momentum)
     else:
-        opt = torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay, momentum=momentum)
+        opt = optim.Adadelta(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     loss = np.zeros(epochs)
     model = model.to(device)
@@ -133,3 +137,6 @@ if __name__ == "__main__":
     # rain_model(model, data, device, epochs=5)
     # save_model(model, path)
     y = translate(model, device, data)
+    from torch import optim
+
+    optim.Adadelta
