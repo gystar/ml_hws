@@ -27,6 +27,20 @@ model = en2cn_model.EN2CN(len(dic.en_ix2word), len(dic.cn_ix2word), data.EOS, da
 if os.path.exists(MODEL_PATH):
     model = model_manager.load_model(model, MODEL_PATH, device)
 
-for _ in range(20):
-    model_manager.train_model(model, data, sampling=0.8, device=device, epochs=5, lr=0.001, opt=0)
+for _ in range(1):
+    model_manager.train_model(
+        model,
+        data,
+        sampling=0.8,
+        device=device,
+        epochs=1,
+        lr=0.0005,
+        opt=1,
+        nbatch=64,
+    )
     model_manager.save_model(model, MODEL_PATH)
+
+for param in model.parameters():
+    if param.grad == None:
+        continue
+    print(param.grad.abs().mean())

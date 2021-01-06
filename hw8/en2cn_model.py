@@ -30,7 +30,7 @@ class Encoder(nn.Module):
         x = self.embedding(x)
         # batch_first=True￼
         output, h = self.rnn(x)
-        # output:[batch, seq_len, h_size*num_directions]
+        # output:[batch, seq_len, h_size*2]
         # h:[num_layers * 2, batch, hidden_size]
         return output, h
 
@@ -75,7 +75,7 @@ class Decoder(nn.Module):
         # 使用最后一层的h来进行预测
         x = self.hidden2onehot(h[-1])
         # x:[batch,cn_word_dim]
-        # h:[num_layers * num_directions, batch, encoder_hidden_size*2]
+        # h:[num_layers * 1, batch, encoder_hidden_size*2]
         return x, h
 
 
@@ -106,7 +106,7 @@ class Attention(nn.Module):
         # 高纬矩阵乘法matmul,只匹配最后两个维度，前面的维度若不一致会作braodcast转换
         softmax = nn.Softmax(dim=1)
         weights = self.attention_func(x).matmul(y.permute(1, 2, 0))
-        weights = softmax(weights)
+        # weights = softmax(weights)
         # 对encoder的各个h带权求和即可得到attention结果
         # 这个地方注意返回size应该和y保持一致,因此最后一步进行转置
         context = x.permute(0, 2, 1).matmul(weights).permute(2, 0, 1)
@@ -138,7 +138,7 @@ class EN2CN(nn.Module):
         y=None,  # cn语句，当正式翻译的时候不要输入此参数
         sampling=0.5,  # sampling的概率,当正式翻译的时候不要输入此参数
     ):
-        # 训练的时候由于使用sampling，所以会使用y即正确结果
+        # 训练的时候由于使用sampling，所以会使用y即正确结果梯度
         # 正式翻译的时候不需要输入y
         return self.__inference__(x) if y == None else self.__train__(x, y, sampling)
 
@@ -158,7 +158,7 @@ class EN2CN(nn.Module):
         # 将encoder的双向h拼接在一起给decoder作为context使用
         h = h.view(self.rnn_layers, 2, h.shape[1], -1)  # 见nn.GRU的output说明
         h = torch.cat((h[:, -2, :, :], h[:, -1, :, :]), dim=2)
-        input = self.BOS  # 起始符
+        input = y[:, 0]  # 起始符
         # 预测的one-hot分布
         ret = torch.zeros((y.shape[0], y.shape[1], self.cn_vsize), device=x.device)
         ret[:, 0, y[0, 0]] = 1.0  # 第一个都是是起始字符，放入
@@ -177,7 +177,7 @@ class EN2CN(nn.Module):
     # 正式翻译的时候会调用此函数
     def __inference__(self, x):
         # en语句x:[batch, seq_len1]
-        # 作beam search找出综合得分最高的句子
+        # 作beam search找出综合得分最高的句子,可以理解为每次只选取有限个点的树广度优先搜索
         # 得分：sum{log(p(yi|x,yi-1))}/len,相当于求最大似然估计，同时加上长度惩罚
         logsoftmax = nn.LogSoftmax(dim=0)
         WIDTH = 5  # beam 宽度

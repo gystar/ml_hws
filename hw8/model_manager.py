@@ -117,10 +117,7 @@ def translate(model, device, data, nbatch=128):
             y_pred = model(inputs)
             y_test.extend(y_pred)
 
-    # 数字转为中文字符
-    cn_words = [[data.dic.cn_ix2word[str(c)] for c in b] for b in y_test]
-
-    return cn_words
+    # 数字转为中文字符a = torch.tensor([1], requires_grad=True)
 
 
 ##test
@@ -130,13 +127,11 @@ if __name__ == "__main__":
     dic = sentense_set.Dictionary()
     data = sentense_set.SentenseSet("./data/training.txt", dic)
     model = en2cn_model.EN2CN(len(dic.en_ix2word), len(dic.cn_ix2word), data.EOS, data.BOS)
-    device = torch.device("cpu")
+    device = torch.device("cuda" if True & torch.cuda.is_available() else "cpu")
     path = "./data/model.pkl"
     if os.path.exists(path):
         model = load_model(model, path, device)
     # rain_model(model, data, device, epochs=5)
     # save_model(model, path)
-    y = translate(model, device, data)
-    from torch import optim
-
-    optim.Adadelta
+    a = torch.tensor([1.0], requires_grad=True)
+    a.grad
