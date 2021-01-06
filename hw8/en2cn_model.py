@@ -23,6 +23,7 @@ class Encoder(nn.Module):
             num_layers=num_layers,
             dropout=0.5,
             bidirectional=True,  # 上下文可能都会都依赖
+            batch_first=True,
         )
 
     def forward(self, x):
@@ -71,7 +72,7 @@ class Decoder(nn.Module):
         # h: [num_layers * 1, batch, encoder_hidden_size*2]
         x = x.unsqueeze(1)
         x = self.embedding(x)
-        _, h = self.rnn(x)
+        _, h = self.rnn(x, h.contiguous())
         # 使用最后一层的h来进行预测
         x = self.hidden2onehot(h[-1])
         # x:[batch,cn_word_dim]
