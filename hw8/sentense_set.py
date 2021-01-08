@@ -51,6 +51,23 @@ class SentenseSet(torch.utils.data.Dataset):
     def __getitem__(self, index):
         return self.sentenses_en[index], self.sentenses_cn[index]
 
+    def EN2Numbers(self, en_sen):
+        ret = [self.BOS]
+        for c in en_sen.split(" "):
+            ret.append(self.dic.en_word2ix.get(c, self.UNK))
+        ret.append(self.EOS)
+        return torch.tensor(ret)
+
+    def Numbers2CN(self, numbers: list):
+        ret = []
+        for i in numbers:
+            if i == self.BOS:
+                continue
+            if i == self.EOS:
+                break
+            ret.append(self.dic.cn_ix2word.get(str(i), "$"))
+        return ret
+
 
 ##test
 if __name__ == "__main__":

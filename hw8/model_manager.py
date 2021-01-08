@@ -29,12 +29,13 @@ def train_model(
     data,
     sampling=0.5,
     device=torch.device("cpu"),
-    lr=0.001,
+    lr=0.0001,
     epochs=10,
     nbatch=32,
     opt=0,  # 0 Adam,1 SGDM,2 Adadelta
     momentum=0.9,
     weight_decay=0,
+    clip_norm=1.0,
 ):
     # dataloader
     data_loader_train = torch.utils.data.DataLoader(
@@ -71,7 +72,7 @@ def train_model(
             opt.zero_grad()
             loss_cur.backward()
             # 防止梯度爆炸，提高训练速度，clip_grad_norm_会进行inplace
-            nn.utils.clip_grad_norm_(model.parameters(), 1)
+            nn.utils.clip_grad_norm_(model.parameters(), 100)
             opt.step()
             if (j + 1) % 10 == 0:
                 time_now = datetime.datetime.now()
@@ -106,18 +107,27 @@ def train_model(
     return model
 
 
-def translate(model, device, data, nbatch=128):
-    model.eval()  # 会关闭dropout、batchnorm等optim
+def translate(model, device, data, nbatch=512):
     model = model.to(device)
-    data_loader_test = torch.utils.data.DataLoader(data, nbatch, shuffle=False, num_workers=multiprocessing.cpu_count())
+    model.eval()  # 会关闭dropout、batchnorm等optim
+    data_loader = torch.utils.data.DataLoader(data, nbatch, shuffle=False, num_workers=multiprocessing.cpu_count())
     y_test = []
     with torch.no_grad():
-        for _, (inputs, _) in enumerate(data_loader_test):
+        for _, (inputs, _) in enumerate(data_loader):
             inputs = inputs.to(device)
             y_pred = model(inputs)
             y_test.extend(y_pred)
-
+    return y_test
     # 数字转为中文字符a = torch.tensor([1], requires_grad=True)
+
+
+def translate_one(model, device, data: sentense_set.SentenseSet, en_sen):
+    model = model.to(device)
+    model.eval()  # 会关闭dropout、batchnorm等optim
+    en_codes = data.EN2Numbers(en_sen).to(device)
+    with torch.no_grad():
+        y_pred = model(en_codes.unsqueeze(0))
+    return data.Numbers2CN(y_pred[0])
 
 
 ##test
@@ -126,12 +136,9 @@ if __name__ == "__main__":
 
     dic = sentense_set.Dictionary()
     data = sentense_set.SentenseSet("./data/training.txt", dic)
-    model = en2cn_model.EN2CN(len(dic.en_ix2word), len(dic.cn_ix2word), data.EOS, data.BOS)
+    model = en2cn_model.EN2CN(len(dic.en_ix2word), len(dic.cn_ix2word), data.BOS, data.EOS)
     device = torch.device("cuda" if True & torch.cuda.is_available() else "cpu")
     path = "./data/model.pkl"
     if os.path.exists(path):
         model = load_model(model, path, device)
-    # rain_model(model, data, device, epochs=5)
-    # save_model(model, path)
-    a = torch.tensor([1.0], requires_grad=True)
-    a.grad
+    yy = translate_one(model, device, data, "i love you .")

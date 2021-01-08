@@ -1,12 +1,5 @@
 import torch
-from torch import nn
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 import importlib
-import datetime
-import multiprocessing
-import math
 import os
 import model_manager
 import sentense_set
@@ -27,20 +20,23 @@ model = en2cn_model.EN2CN(len(dic.en_ix2word), len(dic.cn_ix2word), data.EOS, da
 if os.path.exists(MODEL_PATH):
     model = model_manager.load_model(model, MODEL_PATH, device)
 
-for _ in range(1):
+for _ in range(100):
     model_manager.train_model(
         model,
         data,
-        sampling=0.8,
+        sampling=0.5,
         device=device,
-        epochs=1,
-        lr=0.0005,
-        opt=1,
-        nbatch=64,
+        epochs=5,
+        lr=0.001,
+        opt=0,
+        nbatch=32,
+        clip_norm=1.0,
     )
     model_manager.save_model(model, MODEL_PATH)
+# 打印各个层的梯度情况(计算了梯度且没有清0)
+for name, param in model.named_parameters():
+    print(name)
+    print(None if param.grad == None else param.grad.abs().mean())
 
-for param in model.parameters():
-    if param.grad == None:
-        continue
-    print(param.grad.abs().mean())
+a = torch.randn((1, 1))
+a.repeat

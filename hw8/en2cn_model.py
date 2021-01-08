@@ -58,11 +58,9 @@ class Decoder(nn.Module):
         )
         # h转换为onehot编码分布
         self.hidden2onehot = nn.Sequential(
-            nn.Linear(encoder_hidden_size * 2, 512),
+            nn.Linear(encoder_hidden_size * 2, 1024),
             nn.ReLU(),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Linear(512, vsize),
+            nn.Linear(1024, vsize),
         )
 
     def forward(self, x, h):
@@ -89,12 +87,14 @@ class Attention(nn.Module):
         encoder_hidden_size,  # Encoder中双向GRU的hidden_size
     ):
         super(Attention, self).__init__()
-        self.attention_func = nn.Sequential(
-            nn.Linear(2 * encoder_hidden_size, 512),
+        # weight = encoder_output*w*decoder_hidden
+        self.weight_func = nn.Sequential(
+            nn.Linear(2 * encoder_hidden_size, 1024),
             nn.ReLU(),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Linear(512, 2 * encoder_hidden_size),
+            nn.Linear(1024, 2 * encoder_hidden_size),
+        )
+        self.combine_func = nn.Sequential(
+            nn.Linear(4 * encoder_hidden_size, 2 * encoder_hidden_size),
         )
 
     def forward(self, x, y):
@@ -104,14 +104,22 @@ class Attention(nn.Module):
         # 使用xwy计算得到权系数a，再对x带权求和得到context
         # 每个隐藏层分别和x进行attention运算
         # 权重矩阵weights[batch, seq_len, num_layers]
-        # 高纬矩阵乘法matmul,只匹配最后两个维度，前面的维度若不一致会作braodcast转换
+        # 高纬矩阵乘法matmul,只匹配最后两个维度，前面的维度若不一致会作broadcast转换
+        # bmm会检查是否都是三维
+        h = y[-1].unsqueeze(0)  # 只取最后一层的隐藏层来作attention
         softmax = nn.Softmax(dim=1)
-        weights = self.attention_func(x).matmul(y.permute(1, 2, 0))
-        # weights = softmax(weights)
+        weights = self.weight_func(x).bmm(h.permute(1, 2, 0))
+        # weights = x.bmm(h.permute(1, 2, 0))
+        weights = softmax(weights)
         # 对encoder的各个h带权求和即可得到attention结果
-        # 这个地方注意返回size应该和y保持一致,因此最后一步进行转置
-        context = x.permute(0, 2, 1).matmul(weights).permute(2, 0, 1)
-        return context
+        # 这个地方注意返回size应该和y保持一致便于cat,因此最后一步进行转置
+        attention = x.permute(0, 2, 1).bmm(weights).permute(2, 0, 1)
+        # 将attention和decoder的h连接在一起，然后转化为新的h
+        # 连接在一起之后第三个维度会加倍，用一个全连接层进行转换
+        attention_context = self.combine_func(torch.cat([h, attention], dim=2))
+        ret = y.clone()
+        ret[-1] = attention_context  # 最后一层为attion
+        return ret
 
 
 # 主要由四部分组成：encoder、decoder、attention,translater
@@ -182,8 +190,8 @@ class EN2CN(nn.Module):
         # 得分：sum{log(p(yi|x,yi-1))}/len,相当于求最大似然估计，同时加上长度惩罚
         logsoftmax = nn.LogSoftmax(dim=0)
         WIDTH = 5  # beam 宽度
-        MAX_NUM = 100  # 最多找到的句子数量
-        MAX_LEN = 100  # 句子最大长度
+        MAX_NUM = 20  # 最多找到的句子数量
+        MAX_LEN = 50  # 句子最大长度
         rets = []
         for b in x:  # 每个batch要分开处理，因为很可能不会同时出现结束符，导致查找结束
             # 初始输入
@@ -195,7 +203,7 @@ class EN2CN(nn.Module):
             # 每次都从当前层生成的所有节点中选出topk进行下一次迭代计算
             # 注意先把输出结束符的句子取出来并保存
             ret = []  # 最终找到的所有句子(sen,score)
-            nodes = [(input, h, [], 0)]  # (要输入的字符，h，已经生成的字符，当前得分)
+            nodes = [(input, h, [self.BOS], 0)]  # (要输入的字符，h，已经生成的字符，当前得分)
             got_all = False
             for i in range(MAX_LEN):
                 nodes_all = []  # 所有生成的新节点
