@@ -51,7 +51,7 @@ class SentenseSet(torch.utils.data.Dataset):
     def __getitem__(self, index):
         return self.sentenses_en[index], self.sentenses_cn[index]
 
-    def EN2Numbers(self, en_sen):
+    def EN2Numbers(self, en_sen: str):
         ret = [self.BOS]
         for c in en_sen.split(" "):
             ret.append(self.dic.en_word2ix.get(c, self.UNK))
@@ -66,7 +66,7 @@ class SentenseSet(torch.utils.data.Dataset):
             if i == self.EOS:
                 break
             ret.append(self.dic.cn_ix2word.get(str(i), "$"))
-        return ret
+        return "".join(ret)
 
 
 ##test

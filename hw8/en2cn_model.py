@@ -16,7 +16,10 @@ class Encoder(nn.Module):
         num_layers,
     ):
         super(Encoder, self).__init__()
-        self.embedding = nn.Embedding(vsize, en_word_dim)
+        self.embedding = nn.Sequential(
+            nn.Embedding(vsize, en_word_dim),
+            nn.Dropout(0.5),
+        )
         self.rnn = nn.GRU(
             en_word_dim,
             hidden_size,
@@ -45,7 +48,10 @@ class Decoder(nn.Module):
         num_layers,
     ):
         super(Decoder, self).__init__()
-        self.embedding = nn.Embedding(vsize, cn_word_dim)
+        self.embedding = nn.Sequential(
+            nn.Embedding(vsize, cn_word_dim),
+            nn.Dropout(0.5),
+        )
         self.rnn = nn.GRU(
             cn_word_dim,
             # Decoder中GRU的hidden_size为encoder_hidden_size的两倍，
@@ -60,6 +66,7 @@ class Decoder(nn.Module):
         self.hidden2onehot = nn.Sequential(
             nn.Linear(encoder_hidden_size * 2, 1024),
             nn.ReLU(),
+            nn.Dropout(0.5),
             nn.Linear(1024, vsize),
         )
 
@@ -92,9 +99,11 @@ class Attention(nn.Module):
             nn.Linear(2 * encoder_hidden_size, 1024),
             nn.ReLU(),
             nn.Linear(1024, 2 * encoder_hidden_size),
+            nn.Dropout(0.5),
         )
         self.combine_func = nn.Sequential(
             nn.Linear(4 * encoder_hidden_size, 2 * encoder_hidden_size),
+            nn.Dropout(0.5),
         )
 
     def forward(self, x, y):
@@ -117,7 +126,7 @@ class Attention(nn.Module):
         # 将attention和decoder的h连接在一起，然后转化为新的h
         # 连接在一起之后第三个维度会加倍，用一个全连接层进行转换
         attention_context = self.combine_func(torch.cat([h, attention], dim=2))
-        ret = y.clone()
+        ret = torch.zeros_like(y)
         ret[-1] = attention_context  # 最后一层为attion
         return ret
 
@@ -190,7 +199,7 @@ class EN2CN(nn.Module):
         # 得分：sum{log(p(yi|x,yi-1))}/len,相当于求最大似然估计，同时加上长度惩罚
         logsoftmax = nn.LogSoftmax(dim=0)
         WIDTH = 5  # beam 宽度
-        MAX_NUM = 20  # 最多找到的句子数量
+        MAX_NUM = 100  # 最多找到的句子数量
         MAX_LEN = 50  # 句子最大长度
         rets = []
         for b in x:  # 每个batch要分开处理，因为很可能不会同时出现结束符，导致查找结束
@@ -219,7 +228,7 @@ class EN2CN(nn.Module):
                         sen_new = sen.copy()
                         sen_new.append(pred.item())
                         if predk.indices[j] == self.EOS:  # 已经输出了结束符
-                            ret.append((sen_new, score_new / (i + 1)))
+                            ret.append((sen_new, score_new / (i + 1 - 1)))  # 不算起止字符长度
                             got_all = len(ret) >= MAX_NUM
                             if got_all:
                                 break
@@ -230,7 +239,8 @@ class EN2CN(nn.Module):
                 if got_all:
                     break
                 # 选出得分最高的k个节点
-                nodes = heapq.nlargest(min(WIDTH, len(nodes_all)), nodes_all, key=lambda x: x[3])
+                # 每个节点的排序值为：总得分/句子长度
+                nodes = heapq.nlargest(min(WIDTH, len(nodes_all)), nodes_all, key=lambda x: (x[3] / (len(x[2]) - 1)))
             if len(ret) == 0:  # 没有找到最后输出结束符的正常句子,则将现有得分最高的句子放入rets
                 sen_best = nodes[0][2]
             else:

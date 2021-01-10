@@ -10,13 +10,14 @@ import en2cn_model
 import datetime
 import multiprocessing
 import math
+import os
 
 importlib.reload(sentense_set)
 importlib.reload(en2cn_model)
 
 
 def save_model(model, path):
-    torch.save(model.cpu().state_dict(), path)
+    torch.save(model.state_dict(), path)
 
 
 def load_model(model, path, device):
@@ -27,6 +28,7 @@ def load_model(model, path, device):
 def train_model(
     model,
     data,
+    save_path,
     sampling=0.5,
     device=torch.device("cpu"),
     lr=0.0001,
@@ -46,7 +48,7 @@ def train_model(
         shuffle=True,
     )
 
-    loss_func = nn.CrossEntropyLoss(ignore_index=0)
+    loss_func = nn.CrossEntropyLoss(ignore_index=data.PAD)  # 不要计算pad位置的loss
 
     if opt == 0:
         opt = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)  # 优化器（梯度下降的具体算法Adam）
@@ -56,6 +58,7 @@ def train_model(
         opt = optim.Adadelta(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     loss = np.zeros(epochs)
+    loss_pre = None
     model = model.to(device)
     model.train()  # 会打开dropout、batchnorm等
     for i in range(epochs):
@@ -72,7 +75,7 @@ def train_model(
             opt.zero_grad()
             loss_cur.backward()
             # 防止梯度爆炸，提高训练速度，clip_grad_norm_会进行inplace
-            nn.utils.clip_grad_norm_(model.parameters(), 100)
+            nn.utils.clip_grad_norm_(model.parameters(), clip_norm)
             opt.step()
             if (j + 1) % 10 == 0:
                 time_now = datetime.datetime.now()
@@ -88,6 +91,11 @@ def train_model(
             del ens, cns, y_pred, loss_cur
             torch.cuda.empty_cache()
         loss[i] = loss_sum / math.ceil(data.__len__() / nbatch)
+        # 如果获得loss更小的模型，则保存
+        if (not os.path.exists(save_path)) or (loss_pre != None and loss[i] < loss_pre):
+            print("Got a better model, save it.")
+            save_model(model, save_path)
+        loss_pre = loss[i]
         print(
             "[epochs  %d / %d ] loss: %f duration: %f"
             % (
@@ -117,28 +125,17 @@ def translate(model, device, data, nbatch=512):
             inputs = inputs.to(device)
             y_pred = model(inputs)
             y_test.extend(y_pred)
+    for i in range(len(y_test)):
+        y_test[i] = data.Numbers2CN(y_test[i])
+
     return y_test
-    # 数字转为中文字符a = torch.tensor([1], requires_grad=True)
 
 
 def translate_one(model, device, data: sentense_set.SentenseSet, en_sen):
+    # en_sen中的字词应该用空格分开
     model = model.to(device)
     model.eval()  # 会关闭dropout、batchnorm等optim
     en_codes = data.EN2Numbers(en_sen).to(device)
     with torch.no_grad():
         y_pred = model(en_codes.unsqueeze(0))
     return data.Numbers2CN(y_pred[0])
-
-
-##test
-if __name__ == "__main__":
-    import os
-
-    dic = sentense_set.Dictionary()
-    data = sentense_set.SentenseSet("./data/training.txt", dic)
-    model = en2cn_model.EN2CN(len(dic.en_ix2word), len(dic.cn_ix2word), data.BOS, data.EOS)
-    device = torch.device("cuda" if True & torch.cuda.is_available() else "cpu")
-    path = "./data/model.pkl"
-    if os.path.exists(path):
-        model = load_model(model, path, device)
-    yy = translate_one(model, device, data, "i love you .")
