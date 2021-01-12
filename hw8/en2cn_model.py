@@ -39,6 +39,38 @@ class Encoder(nn.Module):
         return output, h
 
 
+# 输入encoder的output和decoder的h，返回新的h作为decoder的context
+# 参数通过自动学习得到,可以得到合理的attention计算方法
+# https://arxiv.org/abs/1409.0473
+class Attention(nn.Module):
+    def __init__(
+        self,
+        encoder_hidden_size,  # Encoder中双向GRU的hidden_size
+    ):
+        super(Attention, self).__init__()
+        self.weight_func = nn.Sequential(
+            nn.Linear(4 * encoder_hidden_size, encoder_hidden_size),
+            nn.Tanh(),
+            nn.Linear(encoder_hidden_size, 1),
+            nn.Softmax(dim=1),
+        )
+
+    def forward(self, x, y):
+        # x:Encoder中的output[batch, seq_len, encoder_hidden_size*2]
+        # y:Decoder的隐藏层[num_layers * 1, batch, encoder_hidden_size*2]
+        # 返回Attention方法得到的Decoder的context
+        # 使用v*tanh(w(x,y))计算得到权系数a，再对x带权求和得到context
+        # 权重矩阵weights[batch, seq_len, 1]
+        # 高纬矩阵乘法matmul,只匹配最后两个维度，前面的维度若不一致会作broadcast转换
+        # bmm会检查是否都是三维
+        # 这里只最后一层h来作attention
+        h = y[-1].repeat(x.shape[1], 1, 1).permute((1, 0, 2))  # [batch,seq_len,2h]
+        weights = self.weight_func(torch.cat([x, h], dim=2))  # [batch,seq_len,1]
+        context = x.permute((0, 2, 1)).bmm(weights).permute((0, 2, 1))  # [batch,1,2h]
+
+        return context
+
+
 class Decoder(nn.Module):
     def __init__(
         self,
@@ -46,16 +78,18 @@ class Decoder(nn.Module):
         cn_word_dim,  # embedding的输出维度
         encoder_hidden_size,  # Encoder中双向GRU的hidden_size
         num_layers,
+        attention,
     ):
         super(Decoder, self).__init__()
+        self.attention = attention
         self.embedding = nn.Sequential(
             nn.Embedding(vsize, cn_word_dim),
             nn.Dropout(0.5),
         )
         self.rnn = nn.GRU(
-            cn_word_dim,
+            cn_word_dim + 2 * encoder_hidden_size,
             # Decoder中GRU的hidden_size为encoder_hidden_size的两倍，
-            # 即Encoder中的双向h拼接在一起作为Decoder中单向GRU的conheapq.nlargest(2, a, key=lambda x: x[0])text
+            # 即Encoder中的双向h拼接在一起作为Decoder中单向GRU的context
             encoder_hidden_size * 2,
             num_layers=num_layers,
             batch_first=True,
@@ -70,65 +104,23 @@ class Decoder(nn.Module):
             nn.Linear(1024, vsize),
         )
 
-    def forward(self, x, h):
+    def forward(self, x, h, encoder_output):
         # 输入一个字符x，预测下一个字符
         # 这个输入的字符应该是cn字符
         # x: [batch]
         # h: [num_layers * 1, batch, encoder_hidden_size*2]
-        x = x.unsqueeze(1)
-        x = self.embedding(x)
-        _, h = self.rnn(x, h.contiguous())
+        # encoder_output:[batch, seq_len, encoder_hidden_size*2]
+        x = x.unsqueeze(1)  # [b,1]
+        x = self.embedding(x)  # [b,1,cn_word_dim]
+        attention = self.attention(encoder_output, h)  # [b,1,2h]
+        # 将embedding内容和attention的结果连接起来作为输入
+        input = torch.cat([x, attention], dim=2)  # [b,1,2h+cn_word_dim]
+        _, h = self.rnn(input, h.contiguous())
         # 使用最后一层的h来进行预测
         x = self.hidden2onehot(h[-1])
         # x:[batch,cn_word_dim]
         # h:[num_layers * 1, batch, encoder_hidden_size*2]
         return x, h
-
-
-# 输入encoder的output和decoder的h，返回新的h作为decoder的context
-# 参数通过自动学习得到,可以得到合理的attention计算方法
-# https://arxiv.org/abs/1409.0473
-class Attention(nn.Module):
-    def __init__(
-        self,
-        encoder_hidden_size,  # Encoder中双向GRU的hidden_size
-    ):
-        super(Attention, self).__init__()
-        # weight = encoder_output*w*decoder_hidden
-        self.weight_func = nn.Sequential(
-            nn.Linear(2 * encoder_hidden_size, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, 2 * encoder_hidden_size),
-            nn.Dropout(0.5),
-        )
-        self.combine_func = nn.Sequential(
-            nn.Linear(4 * encoder_hidden_size, 2 * encoder_hidden_size),
-            nn.Dropout(0.5),
-        )
-
-    def forward(self, x, y):
-        # x:Encoder中的output[batch, seq_len, encoder_hidden_size*2]
-        # y:Decoder的隐藏层[num_layers * 1, batch, encoder_hidden_size*2]
-        # 返回Attention方法得到的Decoder的context
-        # 使用xwy计算得到权系数a，再对x带权求和得到context
-        # 每个隐藏层分别和x进行attention运算
-        # 权重矩阵weights[batch, seq_len, num_layers]
-        # 高纬矩阵乘法matmul,只匹配最后两个维度，前面的维度若不一致会作broadcast转换
-        # bmm会检查是否都是三维
-        h = y[-1].unsqueeze(0)  # 只取最后一层的隐藏层来作attention
-        softmax = nn.Softmax(dim=1)
-        weights = self.weight_func(x).bmm(h.permute(1, 2, 0))
-        # weights = x.bmm(h.permute(1, 2, 0))
-        weights = softmax(weights)
-        # 对encoder的各个h带权求和即可得到attention结果
-        # 这个地方注意返回size应该和y保持一致便于cat,因此最后一步进行转置
-        attention = x.permute(0, 2, 1).bmm(weights).permute(2, 0, 1)
-        # 将attention和decoder的h连接在一起，然后转化为新的h
-        # 连接在一起之后第三个维度会加倍，用一个全连接层进行转换
-        attention_context = self.combine_func(torch.cat([h, attention], dim=2))
-        ret = torch.zeros_like(y)
-        ret[-1] = attention_context  # 最后一层为attion
-        return ret
 
 
 # 主要由四部分组成：encoder、decoder、attention,translater
@@ -145,8 +137,7 @@ class EN2CN(nn.Module):
         self.rnn_layers = 3
         self.cn_vsize = cn_vsize
         self.encoder = Encoder(en_vsize, 512, self.hsize, self.rnn_layers)
-        self.decoder = Decoder(cn_vsize, 512, self.hsize, self.rnn_layers)
-        self.attention = Attention(self.hsize)
+        self.decoder = Decoder(cn_vsize, 512, self.hsize, self.rnn_layers, Attention(self.hsize))
         self.BOS = BOS
         self.EOS = EOS
 
@@ -181,8 +172,7 @@ class EN2CN(nn.Module):
         ret = torch.zeros((y.shape[0], y.shape[1], self.cn_vsize), device=x.device)
         ret[:, 0, y[0, 0]] = 1.0  # 第一个都是是起始字符，放入
         for i in range(1, y.shape[1]):  # 预测出和y等长的语句
-            out, h = self.decoder(input, h)
-            h = self.attention(encoder_ouput, h)
+            out, h = self.decoder(input, h, encoder_ouput)
             ret[:, i] = out
             pred_next = out.topk(1, axis=1)[1].squeeze()
             # 语言模型，即根据上一个字预测下一个字,输入了前n-1个词，预测后n-1个词
@@ -218,10 +208,9 @@ class EN2CN(nn.Module):
                 nodes_all = []  # 所有生成的新节点
                 for input, h, sen, score_sum in nodes:
                     input = torch.tensor([input], device=x.device)
-                    out, h = self.decoder(input, h)
+                    out, h = self.decoder(input, h, encoder_ouput)
                     out = logsoftmax(out.squeeze())
                     predk = out.topk(WIDTH)
-                    h = self.attention(encoder_ouput, h)
                     for j in range(WIDTH):
                         pred = predk.indices[j]
                         score_new = predk.values[j].item() + score_sum

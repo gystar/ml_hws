@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import torch
 import importlib
 import os
@@ -24,18 +25,17 @@ model_manager.train_model(
     model,
     data,
     save_path=MODEL_PATH,
-    sampling=0.5,
+    sampling=0.0,  # 此数值可以从大到小递减进行训练
     device=device,
-    epochs=30,
+    epochs=50,
     lr=0.0001,
     opt=0,
     nbatch=32,
     clip_norm=100.0,
 )
 
-
 # test
-en = "i love you ."
+en = "yesterday i went to school ."
 ch = model_manager.translate_one(model, device, data, en)
 print('en sen: "%s", translation: "%s"' % (en, ch))
 
