@@ -42,7 +42,7 @@ def train_model(
     data_loader_train = torch.utils.data.DataLoader(
         data,
         batch_size=nbatch,
-        num_workers=0,#multiprocessing.cpu_count(),  # 线程数等于cpu核数
+        num_workers=0,  # multiprocessing.cpu_count(),  # 线程数等于cpu核数
         pin_memory=False,
         shuffle=True,
     )
@@ -69,7 +69,7 @@ def train_model(
         for j, images in enumerate(data_loader_train):
             images = images.to(device).contiguous()
             y_pred = model(images)
-            loss_cur = loss_func(images, y_pred)
+            loss_cur = loss_func(images.view(images.shape[0], -1), y_pred)
             loss_sum += loss_cur.item()
             opt.zero_grad()
             loss_cur.backward()
@@ -130,7 +130,6 @@ def translate(model, device, data, nbatch=512):
         y_test[i] = data.Numbers2CN(y_test[i])
 
     return y_test
-
 
 
 ###test

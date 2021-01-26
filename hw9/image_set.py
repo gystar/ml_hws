@@ -62,8 +62,9 @@ class ValidationSet(torch.utils.data.Dataset):
 if __name__ == "__main__":
     set1 = NoLabeledSet(True)
     set2 = ValidationSet()
-    a =  torch.randn((2,3,16,16))
-    b =  torch.randn((2,3,16,16))
+    a = torch.randn((2, 3, 16, 16))
+    b = torch.randn((2, 3, 16, 16))
     from torch import nn
-    nn.MSELoss()(a,b)
+
+    nn.MSELoss()(a, b)
     print(1)
