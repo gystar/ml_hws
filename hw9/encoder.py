@@ -5,6 +5,7 @@ import torch
 class AutoEncoder(nn.Module):
     def __init__(self):
         super(AutoEncoder, self).__init__()
+        self.codedim = 256
         self.encoder = nn.Sequential(
             nn.Flatten(),
             nn.Linear(3 * 32 * 32, 2048),
@@ -16,10 +17,10 @@ class AutoEncoder(nn.Module):
             nn.Linear(1024, 512),
             nn.Dropout(0.5),
             nn.ReLU(),
-            nn.Linear(512, 256),
+            nn.Linear(512, self.codedim),
         )
         self.decoder = nn.Sequential(
-            nn.Linear(256, 512),
+            nn.Linear(self.codedim, 512),
             nn.Dropout(0.5),
             nn.ReLU(),
             nn.Linear(512, 1024),

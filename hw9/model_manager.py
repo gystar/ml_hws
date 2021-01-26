@@ -42,7 +42,7 @@ def train_model(
     data_loader_train = torch.utils.data.DataLoader(
         data,
         batch_size=nbatch,
-        num_workers=0,  # multiprocessing.cpu_count(),  # 线程数等于cpu核数
+        num_workers=multiprocessing.cpu_count(),  # 线程数等于cpu核数
         pin_memory=False,
         shuffle=True,
     )
@@ -114,22 +114,23 @@ def train_model(
     return model
 
 
-def translate(model, device, data, nbatch=512):
+def encode(model, device, data, nbatch=512):
     model = model.to(device)
     model.eval()  # 会关闭dropout、batchnorm等optim
     data_loader = torch.utils.data.DataLoader(
         data, nbatch, shuffle=False, num_workers=multiprocessing.cpu_count()
     )
-    y_test = []
+    ret = torch.zeros((data.__len__(), model.codedim))
+    i = 0
     with torch.no_grad():
         for _, (inputs, _) in enumerate(data_loader):
             inputs = inputs.to(device)
-            y_pred = model(inputs)
-            y_test.extend(y_pred)
-    for i in range(len(y_test)):
-        y_test[i] = data.Numbers2CN(y_test[i])
+            y_pred = model.encode(inputs).cpu()
+            count = y_pred.shape[0]
+            ret[i : i + count] = y_pred
+            i += count
 
-    return y_test
+    return ret
 
 
 ###test
