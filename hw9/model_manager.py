@@ -47,15 +47,11 @@ def train_model(
         shuffle=True,
     )
 
-    loss_func = nn.MSELoss()
+    loss_func = nn.L1Loss()
     if opt == 0:
-        opt = optim.Adam(
-            model.parameters(), lr=lr, weight_decay=weight_decay
-        )  # 优化器（梯度下降的具体算法Adam）
+        opt = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)  # 优化器（梯度下降的具体算法Adam）
     elif opt == 1:
-        opt = optim.SGD(
-            model.parameters(), lr=lr, weight_decay=weight_decay, momentum=momentum
-        )
+        opt = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay, momentum=momentum)
     else:
         opt = optim.Adadelta(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -69,7 +65,7 @@ def train_model(
         for j, images in enumerate(data_loader_train):
             images = images.to(device).contiguous()
             y_pred = model(images)
-            loss_cur = loss_func(images.view(images.shape[0], -1), y_pred)
+            loss_cur = loss_func(images, y_pred)
             loss_sum += loss_cur.item()
             opt.zero_grad()
             loss_cur.backward()
@@ -117,9 +113,7 @@ def train_model(
 def encode(model, device, data, nbatch=512):
     model = model.to(device)
     model.eval()  # 会关闭dropout、batchnorm等optim
-    data_loader = torch.utils.data.DataLoader(
-        data, nbatch, shuffle=False, num_workers=multiprocessing.cpu_count()
-    )
+    data_loader = torch.utils.data.DataLoader(data, nbatch, shuffle=False, num_workers=multiprocessing.cpu_count())
     ret = torch.zeros((data.__len__(), model.codedim))
     i = 0
     with torch.no_grad():
