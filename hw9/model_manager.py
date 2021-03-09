@@ -119,7 +119,8 @@ def encode(model, device, data, nbatch=512):
     with torch.no_grad():
         for _, (inputs, _) in enumerate(data_loader):
             inputs = inputs.to(device)
-            y_pred = model.encode(inputs).cpu()
+            y_pred, _ = model.encode(inputs)
+            y_pred = y_pred.cpu()
             count = y_pred.shape[0]
             ret[i : i + count] = y_pred
             i += count

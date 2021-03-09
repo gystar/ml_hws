@@ -5,27 +5,25 @@ import torch
 import image_set
 import encoder
 import model_manager
-from sklearn import cluster
 import numpy as np
 import matplotlib.pyplot as plt
-
-import torch
-from sklearn.decomposition import KernelPCA
-from sklearn.manifold import TSNE
-from sklearn.cluster import MiniBatchKMeans
+import utils
 
 importlib.reload(image_set)
 importlib.reload(encoder)
 importlib.reload(model_manager)
+importlib.reload(utils)
 
 device = torch.device("cuda" if True & torch.cuda.is_available() else "cpu")
+utils.same_seeds(10)  # 如果使各个部分的随即seed相同，否则测试的时候会受到随即数的影响
 
-encoder = encoder.AutoEncoder()
-MODEL_PATH = "./data/model.pkl"
+encoder_class = encoder.ConvEnoder
+encoder = encoder_class().to(device)
+MODEL_PATH = f"./data/{str(encoder_class)}.pkl"
 if os.path.exists(MODEL_PATH):
     encoder = model_manager.load_model(encoder, MODEL_PATH, device)
 
-if False:
+if True:
     # train the model
     data_train = image_set.NoLabeledSet(True)
     encoder = model_manager.train_model(
@@ -44,41 +42,29 @@ if False:
         print(None if param.grad == None else param.grad.abs().mean().item())
 
 # 画出原始和最终得到的图片，看一下encoder的效果
+
 data1 = image_set.NoLabeledSet(False)
 img = data1.images[0]
+print("image0 before encoder:")
 plt.figure()
 plt.imshow(image_set.tensor2numpy(img))
+plt.show()
 img1 = encoder(img.unsqueeze(0).to(device)).cpu().squeeze(0)
+print("image0 after encoder:")
 plt.figure()
 plt.imshow(image_set.tensor2numpy(img1))
+plt.show()
 
-# 对验证集进行编码
+
 data_val = image_set.ValidationSet()
-codes = model_manager.encode(encoder, device, data_val).numpy()
-
-
-def predict(latents):
-    # First Dimension Reduction
-    transformer = KernelPCA(n_components=200, kernel="rbf", n_jobs=-1)
-    kpca = transformer.fit_transform(latents)
-    print("First Reduction Shape:", kpca.shape)
-
-    # # Second Dimesnion Reduction
-    X_embedded = TSNE(n_components=2).fit_transform(kpca)
-    print("Second Reduction Shape:", X_embedded.shape)
-
-    # Clustering
-    pred = MiniBatchKMeans(n_clusters=2, random_state=0).fit(X_embedded)
-    pred = [int(i) for i in pred.labels_]
-    pred = np.array(pred)
-    return pred, X_embedded
-
-
-pred1, _ = predict(codes)
+# 不使用encoder直接进行聚类
+pred1 = utils.predict(data_val.images.cpu().view(data_val.images.shape[0], -1))
 rigth_num1 = len((pred1 == data_val.labels.squeeze().numpy()).nonzero()[0])
-print(f"the accuracy of kmeas1:{100*rigth_num1/len(codes)}%")
+print(f"the accuracy of clustering without autoencoder:{100*rigth_num1/data_val.__len__()}%")
 
-# 使用内置的kmeans算法进行聚类
-kmeans = cluster.KMeans(n_clusters=2, max_iter=100, tol=1e-4, n_init=10).fit(codes)
-rigth_num = len((kmeans.labels_ == data_val.labels.numpy()).nonzero()[0])
-print(f"the accuracy of kmeas2:{100*rigth_num/len(codes)}%")
+
+# 使用encoder后进行聚类
+codes = model_manager.encode(encoder, device, data_val).numpy()
+pred2 = utils.predict(codes)
+rigth_num2 = len((pred2 == data_val.labels.squeeze().numpy()).nonzero()[0])
+print(f"tthe accuracy of clustering with autoencoder:{100*rigth_num2/len(codes)}%")
