@@ -17,6 +17,17 @@ def same_seeds(seed):
     torch.backends.cudnn.deterministic = True
 
 
+# KMeans
+def direct_kpredict(latents):
+    # kmeans Clustering
+    # kmeans 是基于空间欧式距离来进行聚类的
+    pred = cluster.MiniBatchKMeans(n_clusters=2, random_state=0, max_iter=200).fit(latents)
+    pred = [int(i) for i in pred.labels_]
+    pred = np.array(pred)
+    return pred
+
+
+# PCA->TSNE->KMeans
 def predict(latents):
     # 使用kernelpca进行第一次维度转换
     transformer = KernelPCA(n_components=200, kernel="rbf", n_jobs=-1)

@@ -9,8 +9,8 @@ class ConvEnoder(nn.Module):
         self.codedim = 32  # encoder得到的隐藏向量维度
         # MaxUnpool2d需要对应的MaxPool2d给出indeces，因此需要分开写
 
-        # sequence:（省略了pool和relu）
-        # conv1 conv1 conv1 fc1 fc2 fc3 fc4 conv_r1 conv_r2 conv_r3
+        # model sequence:（省略了pool和relu）
+        # conv1 conv2 conv3 fc1 fc2 fc3 fc4 conv_r1 conv_r2 conv_r3
         self.conv1 = nn.Conv2d(3, 64, 3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(64, 128, 3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(128, 256, 3, stride=1, padding=1)

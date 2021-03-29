@@ -57,14 +57,27 @@ plt.show()
 
 
 data_val = image_set.ValidationSet()
-# 不使用encoder直接进行聚类
-pred1 = utils.predict(data_val.images.cpu().view(data_val.images.shape[0], -1))
-rigth_num1 = len((pred1 == data_val.labels.squeeze().numpy()).nonzero()[0])
-print(f"the accuracy of clustering without autoencoder:{100*rigth_num1/data_val.__len__()}%")
 
+##下面使用四种比对情况研究encoder和复杂kmeans的有效性
 
-# 使用encoder后进行聚类
+# 1.不使用encoder直接用KMeans
+pred = utils.direct_kpredict(data_val.images.cpu().view(data_val.images.shape[0], -1))
+rigth_num = len((pred == data_val.labels.squeeze().numpy()).nonzero()[0])
+print(f"the accuracy of clustering with direct kmeans:{100*rigth_num/data_val.__len__()}%")
+
+# 2.不使用encoder，但是使用PCA+TSNE+KMeans
+pred = utils.predict(data_val.images.cpu().view(data_val.images.shape[0], -1))
+rigth_num = len((pred == data_val.labels.squeeze().numpy()).nonzero()[0])
+print(f"the accuracy of clustering with complex kmeans :{100*rigth_num/data_val.__len__()}%")
+
+# 3.使用encoder直接用KMeans
 codes = model_manager.encode(encoder, device, data_val).numpy()
-pred2 = utils.predict(codes)
-rigth_num2 = len((pred2 == data_val.labels.squeeze().numpy()).nonzero()[0])
-print(f"tthe accuracy of clustering with autoencoder:{100*rigth_num2/len(codes)}%")
+pred = utils.direct_kpredict(codes)
+rigth_num = len((pred == data_val.labels.squeeze().numpy()).nonzero()[0])
+print(f"the accuracy of clustering with autoencoder and kmeans:{100*rigth_num/len(codes)}%")
+
+# 4.使用encoder,同时使用PCA+TSNE+KMeans
+codes = model_manager.encode(encoder, device, data_val).numpy()
+pred = utils.predict(codes)
+rigth_num = len((pred == data_val.labels.squeeze().numpy()).nonzero()[0])
+print(f"tthe accuracy of clustering with autoencoder and complex kmeans:{100*rigth_num/len(codes)}%")
